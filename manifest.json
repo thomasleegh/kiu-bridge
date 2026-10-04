@@ -1,0 +1,15 @@
+{
+  "name": "橋 Kiu — Cantonese & Mandarin Bridge",
+  "short_name": "Kiu",
+  "description": "Practice Cantonese and Mandarin side by side, led by sound.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14161B",
+  "theme_color": "#14161B",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

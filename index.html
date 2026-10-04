@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>橋 Kiu · Cantonese ↔ Mandarin</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14161B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kiu">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+:root{
+  --ink:#14161B;
+  --surface:#1D2027;
+  --surface-2:#262A33;
+  --paper:#EDEAE1;
+  --muted:#8A8F9C;
+  --canto:#E8543E;
+  --canto-dim:rgba(232,84,62,0.14);
+  --canto-line:rgba(232,84,62,0.55);
+  --mando:#45A395;
+  --mando-dim:rgba(69,163,149,0.14);
+  --mando-line:rgba(69,163,149,0.55);
+  --gold:#D8A657;
+  --divider:rgba(237,234,225,0.09);
+  --good:#5FAE7A;
+  --bad:#D8604F;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:'Space Grotesk',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+#app{
+  max-width:460px;
+  margin:0 auto;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.hanzi-font{font-family:'Noto Serif TC',serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;-webkit-appearance:none;appearance:none;margin:0;box-sizing:border-box;}
+::selection{background:var(--gold);color:var(--ink);}
+
+/* ---------- top bar ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px 20px 14px 20px;
+}
+.wordmark{display:flex;align-items:baseline;gap:10px;}
+.wordmark .glyph{font-family:'Noto Serif TC',serif;font-weight:900;font-size:26px;color:var(--gold);}
+.wordmark .sub{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.streak{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface);border:1px solid var(--divider);
+  padding:6px 12px;border-radius:100px;font-size:13px;font-weight:600;
+}
+.streak svg{width:14px;height:14px;}
+
+/* ---------- home ---------- */
+.home-scroll{flex:1;padding:6px 20px 32px 20px;overflow-y:auto;}
+.hero{
+  background:linear-gradient(160deg,var(--surface) 0%, var(--surface-2) 100%);
+  border:1px solid var(--divider);
+  border-radius:20px;
+  padding:26px 22px;
+  margin-bottom:22px;
+  position:relative;
+  overflow:hidden;
+}
+.hero-bridge{
+  display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:18px;
+}
+.hero-pill{
+  font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;
+  padding:5px 10px;border-radius:8px;letter-spacing:.02em;
+}
+.hero-pill.c{background:var(--canto-dim);color:var(--canto);}
+.hero-pill.m{background:var(--mando-dim);color:var(--mando);}
+.hero-line{width:26px;height:1px;background:var(--divider);margin:0 8px;}
+.hero-hanzi{font-family:'Noto Serif TC',serif;font-weight:700;font-size:20px;margin:0 10px;color:var(--paper);}
+.hero h1{font-size:20px;margin:0 0 6px 0;font-weight:700;line-height:1.35;}
+.hero p{font-size:13.5px;color:var(--muted);margin:0 0 20px 0;line-height:1.5;}
+.stat-row{display:flex;gap:10px;margin-bottom:18px;}
+.stat{flex:1;background:rgba(0,0,0,0.18);border-radius:12px;padding:10px 12px;text-align:left;transition:background .12s ease;}
+.stat:active{background:rgba(0,0,0,0.3);}
+.stat .n{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;}
+.stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+.btn-primary{
+  width:100%;background:var(--gold);color:var(--ink);
+  padding:14px 18px;border-radius:13px;font-weight:700;font-size:15px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .12s ease, opacity .12s ease;
+}
+.btn-primary:active{transform:scale(0.98);}
+.btn-secondary{
+  width:100%;background:transparent;border:1px solid var(--divider);color:var(--paper);
+  padding:12px 18px;border-radius:13px;font-weight:600;font-size:14px;margin-top:10px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-secondary:disabled{opacity:.35;}
+.btn-secondary:active:not(:disabled){transform:scale(0.98);}
+
+.section-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:26px 0 12px 4px;font-weight:600;}
+
+.tab-bar{display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--divider);border-radius:14px;padding:5px;margin-bottom:22px;}
+.tab-bar.primary{height:56px;}
+.tab-bar.secondary{height:40px;}
+.tab-btn{flex:1;height:40px;padding:0 10px;border-radius:10px;font-weight:700;font-size:13px;line-height:1;color:var(--muted);white-space:nowrap;display:flex;align-items:center;justify-content:center;transition:background .15s ease,color .15s ease;}
+.tab-btn.active{background:var(--gold);color:var(--ink);}
+.tab-bar.primary .tab-btn{height:46px;font-size:14.5px;}
+.tab-bar.secondary .tab-btn{height:30px;font-size:12px;}
+
+.convo-card{background:var(--surface);border:1px solid var(--divider);border-radius:16px;padding:16px 16px 6px 16px;margin-bottom:14px;}
+.convo-title{font-size:13.5px;font-weight:700;margin-bottom:14px;}
+.convo-line{display:flex;gap:10px;margin-bottom:14px;}
+.convo-who{width:24px;height:24px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.convo-body .eng{font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+.convo-rom{font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px;}
+.convo-rom.c{color:var(--canto);}
+.convo-rom.m{color:var(--mando);}
+
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.cat-card{
+  background:var(--surface);border:1px solid var(--divider);border-radius:14px;
+  padding:14px 14px;text-align:left;position:relative;overflow:hidden;
+}
+.cat-card .name{font-size:14px;font-weight:600;margin-bottom:8px;}
+.cat-card .bar-track{height:4px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;margin-bottom:6px;}
+.cat-card .bar-fill{height:100%;background:var(--gold);border-radius:4px;}
+.cat-card .frac{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- session chrome ---------- */
+.session-top{padding:16px 18px 10px 18px;display:flex;align-items:center;gap:12px;}
+.icon-btn{width:34px;height:34px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn svg{width:16px;height:16px;}
+.dots{flex:1;display:flex;gap:5px;}
+.dot{flex:1;height:5px;border-radius:4px;background:var(--surface-2);}
+.dot.done{background:var(--gold);}
+.dot.current{background:var(--paper);}
+
+.session-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 26px 26px 26px;}
+.cat-tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:600;}
+.eng{font-size:15px;color:var(--muted);margin-bottom:26px;text-align:center;}
+
+.bridge-card{display:flex;flex-direction:column;align-items:center;width:100%;max-width:300px;}
+.rail{
+  width:100%;text-align:center;padding:14px 16px;border-radius:14px;
+  font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:clamp(17px,5.2vw,21px);
+  line-height:1.3;position:relative;
+  transition:opacity .25s ease, filter .25s ease;
+}
+.rail.canto{background:var(--canto-dim);color:var(--canto);}
+.rail.mando{background:var(--mando-dim);color:var(--mando);}
+.rail-head{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;}
+.rail .tag{font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;font-weight:700;}
+.lit{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;font-style:italic;opacity:.65;margin-top:4px;letter-spacing:.01em;}
+.speak-btn{
+  width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.14);transition:transform .1s ease,background .1s ease;
+}
+.speak-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.24);}
+.speak-btn svg{width:12px;height:12px;}
+.speak-btn.canto{color:var(--canto);}
+.speak-btn.mando{color:var(--mando);}
+.speak-btn.small{width:20px;height:20px;background:transparent;border:1px solid currentColor;opacity:.65;}
+.speak-btn.small svg{width:10px;height:10px;}
+.connector{width:2px;height:16px;background:var(--divider);margin:0 auto;}
+.connector.c-top{background:linear-gradient(var(--canto-line),var(--divider));}
+.connector.c-bot{background:linear-gradient(var(--divider),var(--mando-line));}
+.hanzi-wrap{padding:0 0 4px 0;margin-top:18px;}
+.hanzi{font-family:'Noto Serif TC',serif;font-weight:500;font-size:30px;line-height:1;letter-spacing:.02em;color:var(--muted);text-align:center;}
+
+.hidden-veil{filter:blur(7px);opacity:.35;pointer-events:none;user-select:none;}
+
+.reveal-btn{
+  margin-top:22px;background:var(--surface);border:1px solid var(--divider);
+  padding:11px 22px;border-radius:100px;font-size:13.5px;font-weight:600;color:var(--paper);
+}
+.note-flag{
+  margin-top:16px;max-width:300px;background:rgba(216,166,87,0.1);border:1px solid rgba(216,166,87,0.3);
+  border-radius:12px;padding:11px 14px;font-size:12.5px;color:var(--gold);line-height:1.5;
+  display:flex;gap:8px;
+}
+.note-flag svg{width:14px;height:14px;flex-shrink:0;margin-top:2px;}
+
+.rate-row{display:flex;gap:10px;width:100%;max-width:300px;margin-top:26px;}
+.rate-btn{
+  flex:1;padding:13px 10px;border-radius:13px;font-weight:700;font-size:13.5px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.rate-btn.shaky{background:var(--surface);border:1px solid var(--divider);color:var(--paper);}
+.rate-btn.got-it{background:var(--good);color:var(--ink);}
+.rate-btn span{font-weight:400;font-size:10px;opacity:.75;text-transform:uppercase;letter-spacing:.06em;}
+
+/* ---------- quiz ---------- */
+.quiz-q{font-size:13.5px;color:var(--muted);margin-bottom:6px;text-align:center;}
+.quiz-hanzi{font-family:'Noto Serif TC',serif;font-weight:700;font-size:48px;margin-bottom:6px;}
+.quiz-eng{font-size:14px;color:var(--muted);margin-bottom:24px;}
+.opt-grid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;}
+.opt{
+  padding:13px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--divider);
+  font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;text-align:left;
+}
+.opt.correct{background:rgba(95,174,122,0.16);border-color:var(--good);color:var(--good);}
+.opt.wrong{background:rgba(216,96,79,0.16);border-color:var(--bad);color:var(--bad);}
+.opt:disabled{opacity:.55;}
+.score-pill{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;background:var(--surface);padding:6px 12px;border-radius:100px;}
+
+/* ---------- summary ---------- */
+.summary-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center;}
+.summary-icon{font-family:'Noto Serif TC',serif;font-size:44px;color:var(--gold);margin-bottom:14px;font-weight:900;}
+.summary-wrap h2{font-size:20px;margin:0 0 8px 0;}
+.summary-wrap p{color:var(--muted);font-size:14px;margin:0 0 22px 0;line-height:1.5;max-width:280px;}
+.summary-stats{display:flex;gap:14px;margin-bottom:26px;}
+.summary-stats .s{background:var(--surface);border-radius:14px;padding:14px 20px;}
+.summary-stats .s .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;}
+.summary-stats .s .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+
+/* ---------- browse ---------- */
+.browse-list{flex:1;overflow-y:auto;padding:4px 18px 30px 18px;}
+.browse-item{
+  display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid var(--divider);
+}
+.browse-item .h{font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;width:56px;text-align:center;flex-shrink:0;}
+.browse-item .mid{flex:1;min-width:0;}
+.browse-item .mid .e{font-size:13px;color:var(--muted);margin-bottom:4px;}
+.browse-item .rails{display:flex;gap:8px;flex-wrap:wrap;}
+.browse-item .rails span{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;}
+.browse-item .rails .c{background:var(--canto-dim);color:var(--canto);}
+.browse-item .rails .m{background:var(--mando-dim);color:var(--mando);}
+.browse-item .flag{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;}
+
+.loading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;}
+
+/* ---------- role-play ---------- */
+.lang-toggle{display:flex;gap:8px;margin-bottom:14px;}
+.lt-btn{flex:1;padding:11px 10px;border-radius:12px;font-weight:700;font-size:12.5px;border:1px solid var(--divider);background:var(--surface);color:var(--muted);}
+.lt-btn.active.canto{background:var(--canto-dim);color:var(--canto);border-color:var(--canto-line);}
+.lt-btn.active.mando{background:var(--mando-dim);color:var(--mando);border-color:var(--mando-line);}
+.mic-warn{font-size:12px;color:var(--gold);background:rgba(216,166,87,0.1);border:1px solid rgba(216,166,87,0.3);border-radius:12px;padding:10px 14px;margin-bottom:14px;line-height:1.5;}
+.mic-warn.subtle{color:var(--muted);background:var(--surface);border-color:var(--divider);}
+.scenario-card{
+  display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--divider);
+  border-radius:16px;padding:16px 18px;margin-bottom:10px;
+}
+.scenario-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.scenario-sub{font-size:12.5px;color:var(--muted);margin-bottom:8px;}
+.scenario-meta{font-size:11px;color:var(--gold);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+.npc-bubble{
+  background:var(--surface);border:1px solid var(--divider);border-radius:16px 16px 16px 4px;
+  padding:16px 18px;width:100%;max-width:320px;margin-bottom:24px;
+}
+.npc-eng{font-size:14px;color:var(--muted);margin-bottom:8px;}
+.npc-rom{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;}
+.npc-rom.canto{color:var(--canto);}
+.npc-rom.mando{color:var(--mando);}
+
+.your-turn-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:14px;}
+.mic-btn{
+  width:88px;height:88px;border-radius:50%;background:var(--surface);border:2px solid var(--divider);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--paper);
+  transition:background .15s ease,border-color .15s ease,transform .1s ease;
+}
+.mic-btn svg{width:26px;height:26px;}
+.mic-btn span{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.mic-btn.live{background:rgba(232,84,62,0.14);border-color:var(--canto);animation:pulseMic 1.4s ease infinite;}
+.mic-btn.live svg{color:var(--canto);}
+.mic-btn.live span{color:var(--canto);}
+.mic-btn:active{transform:scale(0.96);}
+@keyframes pulseMic{0%,100%{box-shadow:0 0 0 0 rgba(232,84,62,0.35);}50%{box-shadow:0 0 0 10px rgba(232,84,62,0);}}
+@media (prefers-reduced-motion:reduce){.mic-btn.live{animation:none;}}
+
+.transcript-box{
+  margin-top:18px;width:100%;max-width:300px;min-height:44px;
+  background:rgba(0,0,0,0.18);border:1px dashed var(--divider);border-radius:12px;
+  padding:12px 16px;font-size:13.5px;color:var(--muted);text-align:center;display:flex;align-items:center;justify-content:center;
+}
+.transcript-box.has-text{color:var(--paper);border-style:solid;border-color:var(--divider);font-weight:500;}
+
+.help-row{display:flex;gap:10px;width:100%;max-width:300px;margin-top:22px;}
+.help-row .btn-secondary{margin-top:0;}
+.next-btn{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700;}
+
+.help-panel{
+  margin-top:16px;width:100%;max-width:300px;background:rgba(216,166,87,0.08);
+  border:1px solid rgba(216,166,87,0.3);border-radius:14px;padding:14px 16px;
+}
+.help-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px;}
+.help-eng{font-size:13px;color:var(--muted);margin-bottom:6px;}
+.help-rom{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-bottom:4px;}
+.help-rom.canto{color:var(--canto);}
+.help-rom.mando{color:var(--mando);}
+.help-char{font-family:'Noto Serif TC',serif;font-size:16px;color:var(--muted);opacity:.7;}
+
+/* ---------- add words ---------- */
+.add-form{background:var(--surface);border:1px solid var(--divider);border-radius:16px;padding:16px;margin-bottom:20px;}
+.add-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:12px 0 6px 0;}
+.add-label:first-child{margin-top:0;}
+.add-label.canto-c{color:var(--canto);}
+.add-label.mando-c{color:var(--mando);}
+.add-input{
+  width:100%;background:rgba(0,0,0,0.2);border:1px solid var(--divider);color:var(--paper);
+  padding:10px 12px;border-radius:10px;font-family:'Space Grotesk',sans-serif;font-size:13.5px;
+}
+.add-input::placeholder{color:var(--muted);opacity:.6;}
+.add-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.browse-item .del-btn{width:28px;height:28px;border-radius:50%;background:rgba(216,96,79,0.12);color:var(--bad);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.browse-item .del-btn svg{width:12px;height:12px;}
+.custom-tag{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);background:rgba(216,166,87,0.14);padding:2px 7px;border-radius:6px;margin-left:6px;vertical-align:middle;}
+
+/* ---------- scan ---------- */
+.scan-drop{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  border:1.5px dashed var(--divider);border-radius:16px;padding:36px 20px;text-align:center;
+  background:var(--surface);cursor:pointer;
+}
+.scan-drop svg{width:28px;height:28px;color:var(--gold);}
+.scan-drop .t1{font-size:14px;font-weight:700;}
+.scan-drop .t2{font-size:12px;color:var(--muted);}
+.scan-preview-wrap{position:relative;border-radius:16px;overflow:hidden;margin-bottom:14px;border:1px solid var(--divider);}
+.scan-preview-wrap img{width:100%;display:block;max-height:280px;object-fit:cover;}
+.scan-retake{
+  position:absolute;top:10px;right:10px;background:rgba(20,22,27,0.75);backdrop-filter:blur(4px);
+  color:var(--paper);font-size:11.5px;font-weight:600;padding:7px 12px;border-radius:100px;
+  display:flex;align-items:center;gap:6px;
+}
+.scan-loading{display:flex;align-items:center;gap:10px;padding:14px;color:var(--muted);font-size:13px;}
+.scan-loading .spin{width:16px;height:16px;border:2px solid var(--divider);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion:reduce){.scan-loading .spin{animation:none;}}
+.scan-result-card{background:var(--surface);border:1px solid var(--divider);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+.scan-result-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.scan-result-eng{font-size:14px;font-weight:700;}
+.scan-add-btn{
+  flex-shrink:0;font-size:11.5px;font-weight:700;padding:7px 13px;border-radius:100px;
+  background:var(--gold);color:var(--ink);
+}
+.scan-add-btn.added{background:var(--surface-2);color:var(--good);}
+.scan-result-rails{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.scan-result-rails span{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;}
+.scan-result-rails .c{background:var(--canto-dim);color:var(--canto);}
+.scan-result-rails .m{background:var(--mando-dim);color:var(--mando);}
+
+/* ---------- progress list ---------- */
+.progress-section{margin-bottom:24px;}
+.progress-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:10px;padding:0 4px;}
+.p-count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);font-weight:600;}
+.p-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.p-dot.known{background:var(--good);}
+.p-dot.learning{background:var(--gold);}
+.p-dot.new{background:var(--muted);}
+.progress-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--divider);}
+.p-mid{flex:1;min-width:0;}
+.p-eng{font-size:13.5px;font-weight:600;margin-bottom:2px;}
+.p-rom{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.p-rom .sep{opacity:.4;margin:0 2px;}
+.p-cat{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;}
+.fade-in{animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@media (prefers-reduced-motion:reduce){.fade-in{animation:none;}}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Loading…</div></div>
+
+<script>
+// Detect whether we're running inside Claude's artifact sandbox (window.storage
+// already exists there) or as a standalone deployed app (it doesn't). This one
+// file adapts its behavior for both, so there's only ever one version to maintain.
+const IS_STANDALONE = typeof window.storage === 'undefined';
+
+if(IS_STANDALONE){
+  const LS_PREFIX = 'kiu_';
+  window.storage = {
+    get: async (key) => {
+      try{
+        const v = localStorage.getItem(LS_PREFIX+key);
+        return v===null ? null : {key, value:v, shared:false};
+      }catch(e){ return null; }
+    },
+    set: async (key, value) => {
+      try{ localStorage.setItem(LS_PREFIX+key, value); return {key, value, shared:false}; }
+      catch(e){ return null; }
+    },
+    delete: async (key) => {
+      try{ localStorage.removeItem(LS_PREFIX+key); return {key, deleted:true, shared:false}; }
+      catch(e){ return null; }
+    },
+    list: async (prefix) => {
+      try{
+        const full = LS_PREFIX + (prefix||'');
+        const keys = Object.keys(localStorage).filter(k=>k.startsWith(full)).map(k=>k.slice(LS_PREFIX.length));
+        return {keys, shared:false};
+      }catch(e){ return null; }
+    }
+  };
+}
+const VOCAB = [
+ {id:"w01",cat:"Greetings",eng:"Hello",cChar:"你好",cRom:"nei5 hou2",mChar:"你好",mRom:"nǐ hǎo",same:true,cLit:"you good",mLit:"you good"},
+ {id:"w02",cat:"Greetings",eng:"Goodbye",cChar:"再見",cRom:"zoi3 gin3",mChar:"再見",mRom:"zàijiàn",same:true,cLit:"again see",mLit:"again see"},
+ {id:"w03",cat:"Greetings",eng:"Thank you",cChar:"多謝",cRom:"do1 ze6",mChar:"謝謝",mRom:"xièxie",same:false,cLit:"much thanks",mLit:"thank-thank",note:"For service or help, Cantonese instead says 唔該 (m4 goi1) — Mandarin just uses 謝謝 for everything."},
+ {id:"w04",cat:"Greetings",eng:"Sorry",cChar:"對唔住",cRom:"deoi3 m4 zyu6",mChar:"對不起",mRom:"duìbùqǐ",same:false,cLit:"can't face you",mLit:"can't rise to face",note:"Same meaning, different negation word: 唔 vs 不."},
+ {id:"w05",cat:"Greetings",eng:"Yes / to be",cChar:"係",cRom:"hai6",mChar:"是",mRom:"shì",same:false,note:"Completely different character for 'to be'."},
+ {id:"w06",cat:"Greetings",eng:"No / not",cChar:"唔係",cRom:"m4 hai6",mChar:"不是",mRom:"bùshì",same:false,cLit:"not to-be",mLit:"not to-be"},
+ {id:"w07",cat:"Greetings",eng:"Good morning",cChar:"早晨",cRom:"zou2 san4",mChar:"早安",mRom:"zǎo'ān",same:false,cLit:"early morning",mLit:"early peace"},
+ {id:"w08",cat:"Greetings",eng:"Excuse me",cChar:"唔該",cRom:"m4 goi1",mChar:"麻煩你",mRom:"máfan nǐ",same:false,cLit:"shouldn't [trouble you]",mLit:"trouble you",note:"唔該 is doing a lot of work here — excuse me, please, and thanks-for-service all in one."},
+ {id:"w09",cat:"Pronouns",eng:"I / me",cChar:"我",cRom:"ngo5",mChar:"我",mRom:"wǒ",same:true},
+ {id:"w10",cat:"Pronouns",eng:"You",cChar:"你",cRom:"nei5",mChar:"你",mRom:"nǐ",same:true},
+ {id:"w11",cat:"Pronouns",eng:"He / she",cChar:"佢",cRom:"keoi5",mChar:"他/她",mRom:"tā",same:false,note:"Entirely different character — 佢 doesn't exist in standard Mandarin."},
+ {id:"w12",cat:"Pronouns",eng:"We / us",cChar:"我哋",cRom:"ngo5 dei6",mChar:"我們",mRom:"wǒmen",same:false,cLit:"I-plural",mLit:"I-plural",note:"Same plural idea, different suffix: 哋 vs 們."},
+ {id:"w13",cat:"Pronouns",eng:"They",cChar:"佢哋",cRom:"keoi5 dei6",mChar:"他們",mRom:"tāmen",same:false,cLit:"he-plural",mLit:"he-plural"},
+ {id:"w14",cat:"Family",eng:"Mom",cChar:"媽媽",cRom:"maa4 maa1",mChar:"媽媽",mRom:"māma",same:true},
+ {id:"w15",cat:"Family",eng:"Dad",cChar:"爸爸",cRom:"baa4 baa1",mChar:"爸爸",mRom:"bàba",same:true},
+ {id:"w16",cat:"Family",eng:"Older brother",cChar:"哥哥",cRom:"go4 go1",mChar:"哥哥",mRom:"gēge",same:true},
+ {id:"w17",cat:"Family",eng:"Younger brother",cChar:"細佬",cRom:"sai3 lou2",mChar:"弟弟",mRom:"dìdi",same:false,cLit:"little guy",mLit:"little-brother little-brother"},
+ {id:"w18",cat:"Family",eng:"Older sister",cChar:"家姐",cRom:"gaa1 ze1",mChar:"姐姐",mRom:"jiějie",same:false,cLit:"family sister",mLit:"sister sister",note:"姐姐 is also heard in Cantonese, but 家姐 is the everyday HK version."},
+ {id:"w19",cat:"Family",eng:"Younger sister",cChar:"妹妹",cRom:"mui6 mui2",mChar:"妹妹",mRom:"mèimei",same:true},
+ {id:"w20",cat:"Family",eng:"Grandpa (paternal)",cChar:"爺爺",cRom:"je4 je2",mChar:"爺爺",mRom:"yéye",same:true},
+ {id:"w21",cat:"Family",eng:"Grandma (paternal)",cChar:"嫲嫲",cRom:"maa4 maa4",mChar:"奶奶",mRom:"nǎinai",same:false,note:"嫲嫲 is Cantonese-specific; Mandarin's 奶奶 can also mean mother-in-law depending on context."},
+ {id:"w22",cat:"Food",eng:"Eat",cChar:"食",cRom:"sik6",mChar:"吃",mRom:"chī",same:false,note:"One of the biggest everyday divergences — different character, used constantly."},
+ {id:"w23",cat:"Food",eng:"Drink",cChar:"飲",cRom:"jam2",mChar:"喝",mRom:"hē",same:false},
+ {id:"w24",cat:"Food",eng:"Rice / meal",cChar:"飯",cRom:"faan6",mChar:"飯",mRom:"fàn",same:true},
+ {id:"w25",cat:"Food",eng:"Water",cChar:"水",cRom:"seoi2",mChar:"水",mRom:"shuǐ",same:true},
+ {id:"w26",cat:"Food",eng:"Tea",cChar:"茶",cRom:"caa4",mChar:"茶",mRom:"chá",same:true},
+ {id:"w27",cat:"Food",eng:"Delicious",cChar:"好味",cRom:"hou2 mei6",mChar:"好吃",mRom:"hǎochī",same:false,cLit:"good taste",mLit:"good to-eat"},
+ {id:"w28",cat:"Food",eng:"Noodles",cChar:"麵",cRom:"min6",mChar:"麵",mRom:"miàn",same:true},
+ {id:"w29",cat:"Food",eng:"Egg",cChar:"蛋",cRom:"daan2",mChar:"蛋",mRom:"dàn",same:true},
+ {id:"w30",cat:"Time",eng:"Today",cChar:"今日",cRom:"gam1 jat6",mChar:"今天",mRom:"jīntiān",same:false,cLit:"now day",mLit:"now day",note:"Different character for 'day': 日 vs 天."},
+ {id:"w31",cat:"Time",eng:"Tomorrow",cChar:"聽日",cRom:"ting1 jat6",mChar:"明天",mRom:"míngtiān",same:false,mLit:"next day",note:"Totally different word, not just pronunciation. 聽日's own literal breakdown is genuinely debated among linguists, so left blank rather than guessed."},
+ {id:"w32",cat:"Time",eng:"Yesterday",cChar:"尋日",cRom:"cam4 jat6",mChar:"昨天",mRom:"zuótiān",same:false},
+ {id:"w33",cat:"Time",eng:"Now",cChar:"而家",cRom:"ji4 gaa1",mChar:"現在",mRom:"xiànzài",same:false,mLit:"present-exist",note:"Very common HK colloquialism — nothing like the Mandarin word."},
+ {id:"w34",cat:"Time",eng:"Time",cChar:"時間",cRom:"si4 gaan3",mChar:"時間",mRom:"shíjiān",same:true,cLit:"time interval",mLit:"time interval"},
+ {id:"w35",cat:"Time",eng:"Morning",cChar:"朝早",cRom:"ziu1 zou2",mChar:"早上",mRom:"zǎoshang",same:false,cLit:"morning early",mLit:"early on"},
+ {id:"w36",cat:"Time",eng:"Night",cChar:"晚上",cRom:"maan5 soeng6",mChar:"晚上",mRom:"wǎnshang",same:true,note:"Casual Cantonese often says 夜晚 (je6 maan5) instead."},
+ {id:"w37",cat:"Verbs",eng:"Go",cChar:"去",cRom:"heoi3",mChar:"去",mRom:"qù",same:true},
+ {id:"w38",cat:"Verbs",eng:"Come",cChar:"嚟",cRom:"lei4",mChar:"來",mRom:"lái",same:false,note:"嚟 is a Cantonese-only character — you won't see it in Mandarin text."},
+ {id:"w39",cat:"Verbs",eng:"See / look",cChar:"睇",cRom:"tai2",mChar:"看",mRom:"kàn",same:false,note:"Different character, extremely common — worth knowing cold."},
+ {id:"w40",cat:"Verbs",eng:"Listen",cChar:"聽",cRom:"teng1",mChar:"聽",mRom:"tīng",same:true},
+ {id:"w41",cat:"Verbs",eng:"Speak / say",cChar:"講",cRom:"gong2",mChar:"說",mRom:"shuō",same:false,note:"講 exists in Mandarin too, but 說 is the standard everyday choice."},
+ {id:"w42",cat:"Verbs",eng:"Want",cChar:"要",cRom:"jiu3",mChar:"要",mRom:"yào",same:true},
+ {id:"w43",cat:"Verbs",eng:"Like",cChar:"鍾意",cRom:"zung1 ji3",mChar:"喜歡",mRom:"xǐhuan",same:false,mLit:"happy joyful",note:"Completely different word — high-value to know cold. 鍾意's own literal breakdown is uncertain, so left blank rather than guessed."},
+ {id:"w44",cat:"Verbs",eng:"Know (a fact)",cChar:"知道",cRom:"zi1 dou3",mChar:"知道",mRom:"zhīdào",same:true,cLit:"know-the-way",mLit:"know-the-way"},
+ {id:"w45",cat:"Verbs",eng:"Understand",cChar:"明",cRom:"ming4",mChar:"懂",mRom:"dǒng",same:false},
+ {id:"w46",cat:"Verbs",eng:"Buy",cChar:"買",cRom:"maai5",mChar:"買",mRom:"mǎi",same:true},
+ {id:"w47",cat:"Verbs",eng:"Home / house",cChar:"屋企",cRom:"uk1 kei2",mChar:"家",mRom:"jiā",same:false,note:"Big everyday divergence — completely different word for 'home'."},
+ {id:"p01",cat:"Phrases",eng:"How are you?",cChar:"你好嗎",cRom:"nei5 hou2 maa3",mChar:"你好嗎",mRom:"nǐ hǎo ma",same:true,cLit:"you good ?",mLit:"you good ?"},
+ {id:"p02",cat:"Phrases",eng:"I'm fine, thanks",cChar:"幾好，多謝",cRom:"gei2 hou2, do1 ze6",mChar:"我很好，謝謝",mRom:"wǒ hěn hǎo, xièxie",same:false,cLit:"quite good, much-thanks",mLit:"I very good, thank-thank"},
+ {id:"p03",cat:"Phrases",eng:"What's your name?",cChar:"你叫咩名呀",cRom:"nei5 giu3 me1 meng2 aa3",mChar:"你叫什麼名字",mRom:"nǐ jiào shénme míngzì",same:false,cLit:"you called what name?",mLit:"you called what name?",note:"咩 (me1) is a distinctly Cantonese question word for 'what'."},
+ {id:"p04",cat:"Phrases",eng:"My name is...",cChar:"我叫...",cRom:"ngo5 giu3...",mChar:"我叫...",mRom:"wǒ jiào...",same:true,cLit:"I called...",mLit:"I called..."},
+ {id:"p05",cat:"Phrases",eng:"Nice to meet you",cChar:"幸會",cRom:"hang6 wui6",mChar:"很高興認識你",mRom:"hěn gāoxìng rènshi nǐ",same:false,cLit:"fortunate meeting",mLit:"very happy know you",note:"Cantonese favors a short, formal phrase here rather than a full sentence."},
+ {id:"p06",cat:"Phrases",eng:"I don't understand",cChar:"我唔明",cRom:"ngo5 m4 ming4",mChar:"我不懂",mRom:"wǒ bù dǒng",same:false,cLit:"I not clear",mLit:"I not understand"},
+ {id:"p07",cat:"Phrases",eng:"Can you say that again?",cChar:"可唔可以講多次",cRom:"ho2 m4 ho2 ji3 gong2 do1 ci3",mChar:"你可以再說一次嗎",mRom:"nǐ kěyǐ zài shuō yí cì ma",same:false,cLit:"can-not-can speak more times",mLit:"you can again speak one time ?"},
+ {id:"p08",cat:"Phrases",eng:"Please speak slower",cChar:"講慢啲",cRom:"gong2 maan6 di1",mChar:"說慢一點",mRom:"shuō màn yìdiǎn",same:false,cLit:"speak slow a-bit",mLit:"speak slow a-bit"},
+ {id:"p09",cat:"Phrases",eng:"How much is this?",cChar:"呢個幾多錢",cRom:"ni1 go3 gei2 do1 cin2",mChar:"這個多少錢",mRom:"zhège duōshao qián",same:false,cLit:"this how-much money",mLit:"this how-much money"},
+ {id:"p10",cat:"Phrases",eng:"I want this one",cChar:"我要呢個",cRom:"ngo5 jiu3 ni1 go3",mChar:"我要這個",mRom:"wǒ yào zhège",same:false,cLit:"I want this",mLit:"I want this",note:"呢 vs 這 — different 'this' word, shows up constantly."},
+ {id:"p11",cat:"Phrases",eng:"Where is the bathroom?",cChar:"洗手間喺邊度",cRom:"sai2 sau2 gaan1 hai2 bin1 dou6",mChar:"洗手間在哪裡",mRom:"xǐshǒujiān zài nǎlǐ",same:false,cLit:"wash-hand-room at where",mLit:"wash-hand-room at where"},
+ {id:"p12",cat:"Phrases",eng:"I'm hungry",cChar:"我肚餓",cRom:"ngo5 tou5 ngo6",mChar:"我餓了",mRom:"wǒ è le",same:false,cLit:"I belly hungry",mLit:"I hungry [now]"},
+ {id:"p13",cat:"Phrases",eng:"Let's eat",cChar:"食飯啦",cRom:"sik6 faan6 laa1",mChar:"吃飯吧",mRom:"chī fàn ba",same:false,cLit:"eat meal [go on]",mLit:"eat meal [let's]",note:"The 食/吃 divergence from earlier shows up here in real speech."},
+ {id:"p14",cat:"Phrases",eng:"See you later",cChar:"遲啲見",cRom:"ci4 di1 gin3",mChar:"待會見",mRom:"dāihuì jiàn",same:false,cLit:"a-bit-late see",mLit:"wait-a-moment see"},
+ {id:"p15",cat:"Phrases",eng:"I love you",cChar:"我愛你",cRom:"ngo5 oi3 nei5",mChar:"我愛你",mRom:"wǒ ài nǐ",same:true,cLit:"I love you",mLit:"I love you"},
+ {id:"p16",cat:"Phrases",eng:"Good night",cChar:"早唞",cRom:"zou2 tau2",mChar:"晚安",mRom:"wǎn'ān",same:false,cLit:"early rest",mLit:"night peace",note:"Totally unrelated phrase — 早唞 is Hong Kong Cantonese specifically."},
+ {id:"p17",cat:"Phrases",eng:"Happy birthday",cChar:"生日快樂",cRom:"saang1 jat6 faai3 lok6",mChar:"生日快樂",mRom:"shēngrì kuàilè",same:true,cLit:"birth-day fast-happy",mLit:"birth-day fast-happy"},
+ {id:"p18",cat:"Phrases",eng:"Cheers!",cChar:"飲勝",cRom:"jam2 sing3",mChar:"乾杯",mRom:"gānbēi",same:false,cLit:"drink [to] victory",mLit:"dry cup"},
+];
+const CONVOS = [
+ {title:"Meeting someone new", lines:[
+   {who:"A", eng:"Hi, what's your name?", cChar:"你好，你叫咩名呀？", cRom:"nei5 hou2, nei5 giu3 me1 meng2 aa3?", cLit:"you good, you called what name?", mChar:"你好，你叫什麼名字？", mRom:"nǐ hǎo, nǐ jiào shénme míngzì?", mLit:"you good, you called what name?"},
+   {who:"B", eng:"My name is Alex. Nice to meet you.", cChar:"我叫Alex，幸會。", cRom:"ngo5 giu3 Alex, hang6 wui6.", cLit:"I called Alex, fortunate meeting", mChar:"我叫Alex，很高興認識你。", mRom:"wǒ jiào Alex, hěn gāoxìng rènshi nǐ.", mLit:"I called Alex, very happy know you"},
+ ]},
+ {title:"Ordering food", lines:[
+   {who:"A", eng:"What do you want to eat?", cChar:"你想食咩呀？", cRom:"nei5 soeng2 sik6 me1 aa3?", cLit:"you want-to eat what?", mChar:"你想吃什麼？", mRom:"nǐ xiǎng chī shénme?", mLit:"you want-to eat what?"},
+   {who:"B", eng:"Let's eat noodles.", cChar:"食麵啦。", cRom:"sik6 min6 laa1.", cLit:"eat noodles [go on]", mChar:"吃麵吧。", mRom:"chī miàn ba.", mLit:"eat noodles [let's]"},
+   {who:"A", eng:"Sounds good.", cChar:"好呀。", cRom:"hou2 aa3.", cLit:"good", mChar:"好啊。", mRom:"hǎo a.", mLit:"good"},
+ ]},
+ {title:"Asking directions", lines:[
+   {who:"A", eng:"Excuse me, where's the bathroom?", cChar:"唔該，洗手間喺邊度呀？", cRom:"m4 goi1, sai2 sau2 gaan1 hai2 bin1 dou6 aa3?", cLit:"shouldn't-trouble-you, wash-hand-room at where?", mChar:"麻煩問一下，洗手間在哪裡？", mRom:"máfan wèn yíxià, xǐshǒujiān zài nǎlǐ?", mLit:"trouble [you to] ask, wash-hand-room at where?"},
+   {who:"B", eng:"Over there, on the left.", cChar:"嗰度，左手邊。", cRom:"go2 dou6, zo2 sau2 bin1.", cLit:"that place, left-hand side", mChar:"那邊，左手邊。", mRom:"nàbiān, zuǒshǒubiān.", mLit:"that side, left-hand side"},
+ ]},
+ {title:"Saying goodbye", lines:[
+   {who:"A", eng:"I have to go now.", cChar:"我而家要走喇。", cRom:"ngo5 ji4 gaa1 jiu3 zau2 laa3.", cLit:"I now want [to] leave", mChar:"我現在要走了。", mRom:"wǒ xiànzài yào zǒu le.", mLit:"I present-exist want [to] leave"},
+   {who:"B", eng:"Okay, see you later!", cChar:"好呀，遲啲見！", cRom:"hou2 aa3, ci4 di1 gin3!", cLit:"good, a-bit-late see", mChar:"好的，待會見！", mRom:"hǎo de, dāihuì jiàn!", mLit:"good, wait-a-moment see"},
+ ]},
+];
+
+const SCENARIOS = [
+ {id:"s1", title:"Convenience store", subtitle:"Buying a drink, paying, leaving", turns:[
+   {npcEng:"Welcome! What would you like to buy?", npcCChar:"歡迎光臨！要買咩呀？", npcCRom:"fun1 jing4 gwong1 lam4! jiu3 maai5 me1 aa3?", npcMChar:"歡迎光臨，您要買什麼？", npcMRom:"huānyíng guānglín, nín yào mǎi shénme?",
+    expEng:"I want a bottle of water.", expCChar:"我要一樽水。", expCRom:"ngo5 jiu3 jat1 zeon1 seoi2.", expMChar:"我要一瓶水。", expMRom:"wǒ yào yì píng shuǐ."},
+   {npcEng:"Anything else?", npcCChar:"仲要啲咩呀？", npcCRom:"zung6 jiu3 di1 me1 aa3?", npcMChar:"還要別的嗎？", npcMRom:"hái yào biéde ma?",
+    expEng:"No thanks, that's all.", expCChar:"唔使，多謝。", expCRom:"m4 sai2, do1 ze6.", expMChar:"不用了，謝謝。", expMRom:"búyòng le, xièxie."},
+   {npcEng:"That's $20 total.", npcCChar:"一共二十蚊。", npcCRom:"jat1 gung6 ji6 sap6 man1.", npcMChar:"一共二十塊。", npcMRom:"yígòng èrshí kuài.",
+    expEng:"Here you go.", expCChar:"呢度。", expCRom:"ni1 dou6.", expMChar:"給你。", expMRom:"gěi nǐ."},
+ ]},
+ {id:"s2", title:"Market", subtitle:"Haggling over fruit prices", turns:[
+   {npcEng:"How much are these apples?", npcCChar:"呢個蘋果幾多錢？", npcCRom:"ni1 go3 ping4 gwo2 gei2 do1 cin2?", npcMChar:"這個蘋果多少錢？", npcMRom:"zhège píngguǒ duōshao qián?",
+    expEng:"Can you go a bit cheaper?", expCChar:"平啲得唔得？", expCRom:"peng4 di1 dak1 m4 dak1?", expMChar:"便宜一點可以嗎？", expMRom:"piányi yìdiǎn kěyǐ ma?"},
+   {npcEng:"Sure, I'll knock off $2.", npcCChar:"得，減兩蚊啦。", npcCRom:"dak1, gaam2 loeng5 man1 laa1.", npcMChar:"好，便宜兩塊。", npcMRom:"hǎo, piányi liǎng kuài.",
+    expEng:"Thanks so much.", expCChar:"多謝晒。", expCRom:"do1 ze6 saai3.", expMChar:"太謝謝你了。", expMRom:"tài xièxie nǐ le."},
+   {npcEng:"Want any other fruit?", npcCChar:"仲要啲咩生果呀？", npcCRom:"zung6 jiu3 di1 me1 saang1 gwo2 aa3?", npcMChar:"還要別的水果嗎？", npcMRom:"hái yào biéde shuǐguǒ ma?",
+    expEng:"No, that's enough.", expCChar:"唔使喇，夠喇。", expCRom:"m4 sai2 laa3, gau3 laa3.", expMChar:"不用了，夠了。", expMRom:"búyòng le, gòu le."},
+ ]},
+ {id:"s3", title:"Shopping mall", subtitle:"Asking for directions", turns:[
+   {npcEng:"Miss/Sir, how can I help you?", npcCChar:"小姐／先生，有咩幫到你？", npcCRom:"siu2 ze2 / sin1 saang1, jau5 me1 bong1 dou3 nei5?", npcMChar:"小姐／先生，有什麼可以幫您？", npcMRom:"xiǎojiě/xiānsheng, yǒu shénme kěyǐ bāng nín?",
+    expEng:"I'm looking for the bathroom.", expCChar:"我想搵洗手間。", expCRom:"ngo5 soeng2 wan2 sai2 sau2 gaan1.", expMChar:"我想找洗手間。", expMRom:"wǒ xiǎng zhǎo xǐshǒujiān."},
+   {npcEng:"It's over there, go straight.", npcCChar:"喺嗰邊，直行。", npcCRom:"hai2 go2 bin1, zik6 haang4.", npcMChar:"在那邊，直走。", npcMRom:"zài nàbiān, zhí zǒu.",
+    expEng:"Thanks a lot.", expCChar:"唔該晒。", expCRom:"m4 goi1 saai3.", expMChar:"太感謝了。", expMRom:"tài gǎnxiè le."},
+ ]},
+];
+const SESSION_SIZE = 8;
+const todayStr = () => new Date().toISOString().slice(0,10);
+let homeTab = 'vocab'; // 'vocab' | 'phrases' | 'roleplay' | 'add' | 'scan'
+let roleplayLang = 'mando'; // 'canto' | 'mando'
+
+let progress = {};   // { id: {status:'new'|'learning'|'known'} }
+let meta = { streak:0, lastPracticeDate:null };
+let customWords = []; // user-added words/phrases, cat:'Custom'
+let apiKey = null; // only used when IS_STANDALONE — user's own Anthropic API key for Add/Scan
+let scanPreviewUrl = null;   // data URL for the image thumbnail
+let scanBase64 = null;       // raw base64 payload sent to the API
+let scanResults = null;      // array of detected entries, or null if not scanned yet
+let scanLoading = false;
+let scanErrorMsg = null;
+let state = { view:'home' };
+
+const app = document.getElementById('app');
+
+function icon(name){
+  const icons = {
+    flame:`<svg viewBox="0 0 24 24" fill="none"><path d="M12 2c1 4-4 5-4 10a4 4 0 008 0c0-2-1-3-1-3s2 1 2 4a5 5 0 01-10 0c0-6 5-6 5-11z" fill="currentColor"/></svg>`,
+    close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+    spark:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>`,
+    book:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
+    speaker:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M18.5 5.5a9 9 0 010 13"/></svg>`,
+    mic:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M19 10v1a7 7 0 01-14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/></svg>`,
+    camera:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    gear:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+  };
+  return icons[name]||'';
+}
+
+let voicesReady = false;
+if('speechSynthesis' in window){
+  window.speechSynthesis.onvoiceschanged = ()=>{ voicesReady = true; };
+}
+function pickVoice(prefix){
+  if(!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find(v=>v.lang && v.lang.toLowerCase().startsWith(prefix.toLowerCase())) || null;
+}
+let audioWarned = false;
+function speak(text, prefix, fallbackLang, warnLabel){
+  if(!('speechSynthesis' in window)){ return; }
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const voice = pickVoice(prefix);
+    if(voice){ u.voice = voice; u.lang = voice.lang; }
+    else {
+      u.lang = fallbackLang;
+      if(!audioWarned){
+        audioWarned = true;
+        showAudioNote(`No ${warnLabel} voice found on this device — playing with the closest available voice instead.`);
+      }
+    }
+    u.rate = 0.82;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function showAudioNote(msg){
+  let el = document.getElementById('audioNote');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'audioNote';
+    el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:340px;background:var(--surface-2);border:1px solid var(--divider);color:var(--paper);font-size:12px;padding:10px 14px;border-radius:12px;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(window._audioNoteTimer);
+  window._audioNoteTimer = setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+function hideAudioNote(){
+  clearTimeout(window._audioNoteTimer);
+  const el = document.getElementById('audioNote');
+  if(el) el.style.display = 'none';
+}
+function speakBtnHTML(text, kind){
+  const safe = text.replace(/"/g,'&quot;');
+  return `<button class="speak-btn ${kind}" data-text="${safe}" data-kind="${kind}" aria-label="Play pronunciation">${icon('speaker')}</button>`;
+}
+function wireSpeakButtons(root){
+  root.querySelectorAll('.speak-btn').forEach(b=>{
+    b.onclick = (e)=>{
+      e.stopPropagation();
+      const text = b.dataset.text;
+      if(b.dataset.kind === 'canto') speak(text, 'zh-HK', 'zh-HK', 'Cantonese');
+      else speak(text, 'zh-CN', 'zh-CN', 'Mandarin');
+    };
+  });
+}
+
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let recActive = null;
+function startRecognition(lang, onResult, onEnd, onError){
+  if(!SpeechRec){ onError && onError('unsupported'); return; }
+  try{
+    if(recActive){ try{ recActive.stop(); }catch(e){} }
+    const rec = new SpeechRec();
+    rec.lang = lang;
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    let finalText = '';
+    rec.onresult = (ev)=>{
+      let interim = '';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const t = ev.results[i][0].transcript;
+        if(ev.results[i].isFinal) finalText += t; else interim += t;
+      }
+      onResult(finalText || interim, !!finalText);
+    };
+    rec.onerror = (ev)=>{ onError && onError(ev.error); };
+    rec.onend = ()=>{ recActive = null; onEnd && onEnd(); };
+    recActive = rec;
+    rec.start();
+  }catch(e){ onError && onError('failed'); }
+}
+function stopRecognition(){
+  if(recActive){ try{ recActive.stop(); }catch(e){} }
+}
+
+async function loadData(){
+  try{ const r = await window.storage.get('progress'); progress = r ? JSON.parse(r.value) : {}; }catch(e){ progress = {}; }
+  try{ const r = await window.storage.get('meta'); meta = r ? JSON.parse(r.value) : {streak:0,lastPracticeDate:null}; }catch(e){ meta = {streak:0,lastPracticeDate:null}; }
+  try{ const r = await window.storage.get('customWords'); customWords = r ? JSON.parse(r.value) : []; }catch(e){ customWords = []; }
+  if(IS_STANDALONE){
+    try{ const r = await window.storage.get('apiKey'); apiKey = r ? r.value : null; }catch(e){ apiKey = null; }
+  }
+  render();
+}
+async function saveProgress(){ try{ await window.storage.set('progress', JSON.stringify(progress)); }catch(e){} }
+async function saveMeta(){ try{ await window.storage.set('meta', JSON.stringify(meta)); }catch(e){} }
+async function saveCustomWords(){ try{ await window.storage.set('customWords', JSON.stringify(customWords)); }catch(e){} }
+async function saveApiKey(key){ apiKey = key; try{ await window.storage.set('apiKey', key); }catch(e){} }
+async function clearApiKey(){ apiKey = null; try{ await window.storage.delete('apiKey'); }catch(e){} }
+
+// Builds the right fetch config for either environment:
+// - Inside Claude: no key needed, the artifact sandbox handles auth invisibly.
+// - Standalone: requires the user's own API key, sent via the direct-browser-access headers.
+function apiHeaders(){
+  if(!IS_STANDALONE) return { "Content-Type": "application/json" };
+  if(!apiKey) throw new Error('nokey');
+  return {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01",
+    "anthropic-dangerous-direct-browser-access": "true"
+  };
+}
+
+async function translateEntry(engText){
+  const prompt = `You are a bilingual dictionary assistant for a heritage Cantonese speaker learning to speak both Cantonese and Mandarin. For the English word or phrase below, respond with ONLY a raw JSON object (no markdown fences, no preamble, no explanation) with exactly these fields:
+
+{
+  "type": "word" or "phrase" (use "phrase" if this is a multi-word conversational expression/sentence someone would say in a specific situation; use "word" if it's a single vocabulary item or short fixed term),
+  "cChar": Cantonese Traditional characters,
+  "cRom": Jyutping romanization with tone numbers, words space-separated,
+  "mChar": Mandarin Traditional characters,
+  "mRom": Hanyu Pinyin romanization with tone marks, words space-separated,
+  "lit": a short literal/word-for-word gloss in English, ONLY if it meaningfully differs from the idiomatic English meaning — otherwise an empty string,
+  "note": one short sentence noting it ONLY if Cantonese and Mandarin use genuinely different vocabulary/characters for this concept — otherwise an empty string
+}
+
+English word or phrase: "${engText}"`;
+
+  let response;
+  try{
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+  }catch(e){
+    if(e.message === 'nokey') throw e;
+    throw new Error('network');
+  }
+  if(response.status === 401 || response.status === 403) throw new Error('badkey');
+  if(!response.ok) throw new Error('api');
+  const data = await response.json();
+  const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('');
+  // Be tolerant of any stray preamble/fencing the model might add despite instructions —
+  // grab the substring between the first '{' and the last '}' rather than requiring a clean response.
+  const start = textBlocks.indexOf('{');
+  const end = textBlocks.lastIndexOf('}');
+  if(start === -1 || end === -1 || end < start) throw new Error('parse');
+  let parsed;
+  try{
+    parsed = JSON.parse(textBlocks.slice(start, end+1));
+  }catch(e){
+    throw new Error('parse');
+  }
+  if(!parsed.cChar || !parsed.cRom || !parsed.mChar || !parsed.mRom) throw new Error('incomplete');
+  return parsed;
+}
+
+// Downscale + re-encode as JPEG before sending, so photos from a phone camera
+// (often several MB) don't balloon into a huge base64 payload.
+function fileToResizedDataUrl(file, maxDim){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let { width, height } = img;
+        if(width > height && width > maxDim){ height = Math.round(height * maxDim/width); width = maxDim; }
+        else if(height > maxDim){ width = Math.round(width * maxDim/height); height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = ()=>reject(new Error('image'));
+      img.src = e.target.result;
+    };
+    reader.onerror = ()=>reject(new Error('read'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function scanImageForText(base64Data){
+  const prompt = `You are a bilingual OCR and dictionary assistant for a heritage Cantonese speaker learning to speak both Cantonese and Mandarin. Look at the attached image and find any Chinese text visible in it (menus, signs, texts, labels, anything).
+
+For each distinct word or phrase you find (up to 8, skip duplicates), respond with ONLY a raw JSON array (no markdown fences, no preamble, no explanation) where each item has exactly these fields:
+
+{
+  "detectedChar": the Chinese characters exactly as they appear in the image,
+  "eng": English meaning,
+  "type": "word" or "phrase" (use "phrase" for a multi-word expression/sentence someone would say aloud in a situation; "word" for a single vocabulary item or short fixed term),
+  "cChar": Cantonese Traditional characters (same as detectedChar if already Cantonese-appropriate),
+  "cRom": Jyutping romanization with tone numbers, space-separated,
+  "mChar": Mandarin Traditional characters,
+  "mRom": Hanyu Pinyin romanization with tone marks, space-separated,
+  "lit": a short literal/word-for-word English gloss, ONLY if it meaningfully differs from the idiomatic meaning — otherwise an empty string,
+  "note": one short sentence ONLY if Cantonese and Mandarin use genuinely different vocabulary for this concept — otherwise an empty string
+}
+
+If there is no Chinese text anywhere in the image, respond with exactly: []`;
+
+  let response;
+  try{
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } },
+            { type: "text", text: prompt }
+          ]
+        }]
+      })
+    });
+  }catch(e){
+    if(e.message === 'nokey') throw e;
+    throw new Error('network');
+  }
+  if(response.status === 401 || response.status === 403) throw new Error('badkey');
+  if(!response.ok) throw new Error('api');
+  const data = await response.json();
+  const textBlocks = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('');
+  const start = textBlocks.indexOf('[');
+  const end = textBlocks.lastIndexOf(']');
+  if(start === -1 || end === -1 || end < start) throw new Error('parse');
+  let parsed;
+  try{ parsed = JSON.parse(textBlocks.slice(start, end+1)); }
+  catch(e){ throw new Error('parse'); }
+  if(!Array.isArray(parsed)) throw new Error('parse');
+  return parsed.filter(r => r.cChar && r.cRom && r.mChar && r.mRom);
+}
+
+function allWords(){ return VOCAB.concat(customWords); }
+function wordCategories(){
+  return [...new Set(allWords().filter(w=>w.cat!=='Phrases').map(w=>w.cat))];
+}
+
+function statusOf(id){ return (progress[id] && progress[id].status) || 'new'; }
+function shakyCountOf(id){ return (progress[id] && progress[id].shakyCount) || 0; }
+function knownCount(){ return allWords().filter(w=>statusOf(w.id)==='known').length; }
+function knownCountInCat(cat){ return allWords().filter(w=>w.cat===cat && statusOf(w.id)==='known').length; }
+
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildLearnQueue(cats){
+  const pool = cats ? allWords().filter(w=>cats.includes(w.cat)) : allWords();
+  const learning = shuffle(pool.filter(w=>statusOf(w.id)==='learning'));
+  const fresh = shuffle(pool.filter(w=>statusOf(w.id)==='new'));
+  let queue = [...learning, ...fresh].slice(0, SESSION_SIZE);
+  if(queue.length < SESSION_SIZE){
+    const known = shuffle(pool.filter(w=>statusOf(w.id)==='known'));
+    queue = [...queue, ...known].slice(0, SESSION_SIZE);
+  }
+  return queue;
+}
+function buildQuizQueue(cats){
+  const pool = cats ? allWords().filter(w=>cats.includes(w.cat)) : allWords();
+  const eligible = shuffle(pool.filter(w=>statusOf(w.id)!=='new'));
+  return eligible.slice(0, Math.min(SESSION_SIZE, eligible.length));
+}
+
+// ---------- render ----------
+function render(){
+  app.innerHTML = '';
+  const v = state.view;
+  if(v==='home') renderHome();
+  else if(v==='learn') renderLearn();
+  else if(v==='learnSummary') renderLearnSummary();
+  else if(v==='quiz') renderQuiz();
+  else if(v==='quizSummary') renderQuizSummary();
+  else if(v==='browse') renderBrowse();
+  else if(v==='roleplay') renderRoleplaySession();
+  else if(v==='roleplaySummary') renderRoleplaySummary();
+  else if(v==='progressList') renderProgressList();
+  else if(v==='settings') renderSettings();
+}
+
+function renderHome(){
+  const kc = knownCount();
+  const learningCount = allWords().filter(w=>statusOf(w.id)==='learning').length;
+  const isVocab = homeTab === 'vocab';
+  const isPhrases = homeTab === 'phrases';
+  const isRoleplay = homeTab === 'roleplay';
+  const isAdd = homeTab === 'add';
+  const isScan = homeTab === 'scan';
+  const wordCats = wordCategories();
+  const scopeCats = isVocab ? wordCats : ['Phrases'];
+  const scopeWords = allWords().filter(w=>scopeCats.includes(w.cat));
+  const scopeKnown = scopeWords.filter(w=>statusOf(w.id)==='known').length;
+  const scopeLearning = scopeWords.filter(w=>statusOf(w.id)==='learning').length;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.innerHTML = `
+    <div class="topbar">
+      <div class="wordmark"><span class="glyph">橋</span><span class="sub">Kiu · Bridge</span></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="icon-btn" id="settingsBtn" aria-label="Settings">${icon('gear')}</button>
+        <button class="icon-btn" id="progressBtn" aria-label="View all progress">${icon('book')}</button>
+        <div class="streak">${icon('flame')} ${meta.streak||0} day${meta.streak===1?'':'s'}</div>
+      </div>
+    </div>
+    <div class="home-scroll">
+      <div class="stat-row" style="margin-bottom:22px;">
+        <button class="stat" id="statKnown"><div class="n">${kc}/${allWords().length}</div><div class="l">Known</div></button>
+        <button class="stat" id="statLearning"><div class="n">${learningCount}</div><div class="l">Learning</div></button>
+      </div>
+
+      <div class="tab-bar secondary" style="margin-bottom:8px;">
+        <button class="tab-btn ${isAdd?'active':''}" data-tab="add">Add</button>
+        <button class="tab-btn ${isScan?'active':''}" data-tab="scan">Scan</button>
+      </div>
+      <div class="tab-bar primary">
+        <button class="tab-btn ${isVocab?'active':''}" data-tab="vocab">Words</button>
+        <button class="tab-btn ${isPhrases?'active':''}" data-tab="phrases">Phrases</button>
+        <button class="tab-btn ${isRoleplay?'active':''}" data-tab="roleplay">Speaking</button>
+      </div>
+
+      ${isVocab ? `
+        <button class="btn-primary" id="startLearn">${icon('spark')} Practice new words</button>
+        <button class="btn-secondary" id="startQuiz" ${scopeLearning+scopeKnown===0?'disabled':''}>Quiz yourself</button>
+        <div class="section-label">Browse by category</div>
+        <div class="cat-grid">
+          ${wordCats.map(c=>{
+            const total = allWords().filter(w=>w.cat===c).length;
+            const k = knownCountInCat(c);
+            const pct = Math.round((k/total)*100);
+            return `<button class="cat-card" data-cat="${c}">
+              <div class="name">${c}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+              <div class="frac">${k}/${total} known</div>
+            </button>`;
+          }).join('')}
+        </div>
+      ` : ''}
+
+      ${isPhrases ? `
+        <button class="btn-primary" id="startLearn">${icon('spark')} Practice phrases</button>
+        <button class="btn-secondary" id="startQuiz" ${scopeLearning+scopeKnown===0?'disabled':''}>Quiz yourself</button>
+        <button class="btn-secondary" id="browsePhrases">Browse all phrases</button>
+        <div class="section-label">Simple conversations</div>
+        ${CONVOS.map(convo=>`
+          <div class="convo-card">
+            <div class="convo-title">${convo.title}</div>
+            ${convo.lines.map(l=>`
+              <div class="convo-line">
+                <div class="convo-who">${l.who}</div>
+                <div class="convo-body">
+                  <div class="eng">${l.eng}</div>
+                  <div class="convo-rom c">${l.cRom} ${speakBtnHTML(l.cChar,'canto').replace('speak-btn','speak-btn small')}</div>
+                  ${l.cLit?`<div class="lit" style="margin-bottom:6px;">lit. "${l.cLit}"</div>`:''}
+                  <div class="convo-rom m">${l.mRom} ${speakBtnHTML(l.mChar,'mando').replace('speak-btn','speak-btn small')}</div>
+                  ${l.mLit?`<div class="lit">lit. "${l.mLit}"</div>`:''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      ` : ''}
+
+      ${isRoleplay ? `
+        <div class="lang-toggle">
+          <button class="lt-btn canto ${roleplayLang==='canto'?'active':''}" data-lang="canto">Practice in Cantonese</button>
+          <button class="lt-btn mando ${roleplayLang==='mando'?'active':''}" data-lang="mando">Practice in Mandarin</button>
+        </div>
+        ${!SpeechRec ? `<div class="mic-warn">${icon('spark')} This browser doesn't support speech recognition — you can still read through the scenarios, but the mic button won't work. Try Chrome for the full experience.</div>` : ''}
+        ${roleplayLang==='canto' ? `<div class="mic-warn subtle">Heads up: Cantonese speech recognition is less reliable than Mandarin in most browsers. Use the transcript as a rough check, not a grade.</div>` : ''}
+        <div class="section-label">Pick a scenario</div>
+        ${SCENARIOS.map(s=>`
+          <button class="scenario-card" data-sid="${s.id}">
+            <div class="scenario-title">${s.title}</div>
+            <div class="scenario-sub">${s.subtitle}</div>
+            <div class="scenario-meta">${s.turns.length} exchanges</div>
+          </button>
+        `).join('')}
+      ` : ''}
+
+      ${isAdd ? `
+        ${(IS_STANDALONE && !apiKey) ? `<div class="mic-warn" id="addKeyNudge" style="cursor:pointer;">${icon('gear')} Add your API key in Settings to use this feature standalone — tap here.</div>` : ''}
+        <div class="add-form">
+          <div class="add-label">English word or phrase</div>
+          <input class="add-input" id="addEng" placeholder="e.g. receipt, or 'can I get the check?'" />
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">Just type it in English — I'll generate the Cantonese and Mandarin, and route it into Vocab practice or Phrases practice depending on whether it's a word or a full expression.</div>
+          <button class="btn-primary" id="addSubmit" style="margin-top:14px;">${icon('spark')} Add to my words</button>
+        </div>
+        <div class="section-label">Your words (${customWords.length})</div>
+        ${customWords.length===0 ? `<div class="mic-warn subtle">Nothing added yet — words go into Vocab practice, phrases go into Phrases practice, automatically.</div>` : ''}
+        ${customWords.map(w=>`
+          <div class="browse-item">
+            <div class="mid">
+              <div class="e">${w.eng} <span class="custom-tag">${w.cat==='Phrases'?'Phrase':'Word'}</span></div>
+              <div class="rails">
+                <span class="c">${w.cRom}</span>
+                <span class="m">${w.mRom}</span>
+              </div>
+              ${w.cLit?`<div style="font-size:11px;font-style:italic;color:var(--muted);opacity:.75;margin-top:5px;">lit. "${w.cLit}"</div>`:''}
+              <div style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--muted);opacity:.65;margin-top:6px;">${w.cChar}${w.same?'':` · ${w.mChar}`}</div>
+            </div>
+            <button class="del-btn" data-id="${w.id}" aria-label="Delete">${icon('close')}</button>
+          </div>
+        `).join('')}
+      ` : ''}
+
+      ${isScan ? `
+        ${(IS_STANDALONE && !apiKey) ? `<div class="mic-warn" id="scanKeyNudge" style="cursor:pointer;">${icon('gear')} Add your API key in Settings to use this feature standalone — tap here.</div>` : ''}
+        <input type="file" accept="image/*" id="scanFileInput" style="display:none;" />
+        ${!scanPreviewUrl ? `
+          <div class="scan-drop" id="scanDrop">
+            ${icon('camera')}
+            <div class="t1">Upload a screenshot or photo</div>
+            <div class="t2">Menus, signs, texts — anything with Chinese text on it</div>
+          </div>
+        ` : `
+          <div class="scan-preview-wrap">
+            <img src="${scanPreviewUrl}" alt="Uploaded photo" />
+            <button class="scan-retake" id="scanRetake">${icon('close')} Choose a different photo</button>
+          </div>
+        `}
+        ${scanLoading ? `<div class="scan-loading"><div class="spin"></div> Reading the image…</div>` : ''}
+        ${scanErrorMsg ? `<div class="mic-warn" style="margin-top:14px;">${scanErrorMsg}</div>` : ''}
+        ${scanResults ? (
+          scanResults.length===0
+            ? `<div class="mic-warn subtle" style="margin-top:14px;">Didn't find any Chinese text in that image — try a clearer or closer shot.</div>`
+            : `<div class="section-label">Found ${scanResults.length} item${scanResults.length===1?'':'s'}</div>
+               ${scanResults.map((r,i)=>`
+                 <div class="scan-result-card">
+                   <div class="scan-result-top">
+                     <div class="scan-result-eng">${r.eng} <span class="custom-tag">${r.type==='phrase'?'Phrase':'Word'}</span></div>
+                     <button class="scan-add-btn ${r._added?'added':''}" data-idx="${i}">${r._added?'Added ✓':'Add'}</button>
+                   </div>
+                   <div class="scan-result-rails">
+                     <span class="c">${r.cRom}</span>
+                     <span class="m">${r.mRom}</span>
+                   </div>
+                   ${r.lit?`<div style="font-size:11px;font-style:italic;color:var(--muted);opacity:.75;margin:4px 0;">lit. "${r.lit}"</div>`:''}
+                   <div style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--muted);opacity:.65;">${r.detectedChar || r.cChar}</div>
+                 </div>
+               `).join('')}`
+        ) : ''}
+      ` : ''}
+    </div>
+  `;
+  app.appendChild(wrap);
+  wireSpeakButtons(wrap);
+
+  wrap.querySelectorAll('.tab-btn').forEach(b=>{
+    b.onclick = ()=>{ homeTab = b.dataset.tab; render(); };
+  });
+  const progBtn = wrap.querySelector('#progressBtn');
+  if(progBtn) progBtn.onclick = ()=>{ state = {view:'progressList'}; render(); };
+  const settingsBtn = wrap.querySelector('#settingsBtn');
+  if(settingsBtn) settingsBtn.onclick = ()=>{ state = {view:'settings'}; render(); };
+  const addKeyNudge = wrap.querySelector('#addKeyNudge');
+  if(addKeyNudge) addKeyNudge.onclick = ()=>{ state = {view:'settings'}; render(); };
+  const scanKeyNudge = wrap.querySelector('#scanKeyNudge');
+  if(scanKeyNudge) scanKeyNudge.onclick = ()=>{ state = {view:'settings'}; render(); };
+  const statKnown = wrap.querySelector('#statKnown');
+  if(statKnown) statKnown.onclick = ()=>{ state = {view:'progressList', focus:'known'}; render(); };
+  const statLearning = wrap.querySelector('#statLearning');
+  if(statLearning) statLearning.onclick = ()=>{ state = {view:'progressList', focus:'learning'}; render(); };
+  const addSubmit = wrap.querySelector('#addSubmit');
+  if(addSubmit) addSubmit.onclick = async ()=>{
+    const inputEl = wrap.querySelector('#addEng');
+    const eng = inputEl.value.trim();
+    if(!eng){ showAudioNote('Type a word or phrase first.'); return; }
+    hideAudioNote();
+    const originalLabel = addSubmit.innerHTML;
+    addSubmit.disabled = true;
+    addSubmit.innerHTML = 'Looking up…';
+    try{
+      const result = await translateEntry(eng);
+      const cat = result.type === 'phrase' ? 'Phrases' : 'Custom';
+      const w = {
+        id: 'c_'+Date.now(), cat, eng,
+        cChar: result.cChar, cRom: result.cRom,
+        mChar: result.mChar, mRom: result.mRom,
+        same: result.cChar === result.mChar,
+      };
+      if(result.lit){ w.cLit = result.lit; w.mLit = result.lit; }
+      if(result.note){ w.note = result.note; }
+      customWords.push(w);
+      await saveCustomWords();
+      inputEl.value = '';
+      hideAudioNote();
+      render();
+    }catch(e){
+      const messages = {
+        network: 'No connection reached the translation service — check your internet and try again.',
+        api: 'The translation service had a hiccup — try again in a moment.',
+        parse: 'Got an unreadable response back — usually works on a retry.',
+        incomplete: 'Got a partial response back — usually works on a retry.',
+        nokey: 'Add your Anthropic API key in Settings to use this outside Claude.',
+        badkey: 'That API key was rejected — check it in Settings.',
+      };
+      showAudioNote(messages[e.message] || 'Something went wrong — try again.');
+      addSubmit.disabled = false;
+      addSubmit.innerHTML = originalLabel;
+    }
+  };
+  wrap.querySelectorAll('.del-btn').forEach(b=>{
+    b.onclick = ()=>{
+      customWords = customWords.filter(w=>w.id!==b.dataset.id);
+      delete progress[b.dataset.id];
+      saveCustomWords(); saveProgress();
+      render();
+    };
+  });
+
+  const scanFileInput = wrap.querySelector('#scanFileInput');
+  const scanDrop = wrap.querySelector('#scanDrop');
+  if(scanDrop) scanDrop.onclick = ()=> scanFileInput.click();
+  if(scanFileInput) scanFileInput.onchange = async ()=>{
+    const file = scanFileInput.files[0];
+    if(!file) return;
+    scanErrorMsg = null;
+    scanResults = null;
+    try{
+      const dataUrl = await fileToResizedDataUrl(file, 1024);
+      scanPreviewUrl = dataUrl;
+      scanBase64 = dataUrl.split(',')[1];
+      scanLoading = true;
+      render();
+      const results = await scanImageForText(scanBase64);
+      scanResults = results.map(r=>({...r, _added:false}));
+      scanLoading = false;
+      render();
+    }catch(e){
+      scanLoading = false;
+      const messages = {
+        network: 'No connection reached the translation service — check your internet and try again.',
+        api: 'The translation service had a hiccup — try again in a moment.',
+        parse: 'Got an unreadable response back — usually works on a retry.',
+        image: 'Couldn\'t read that image file — try a different photo.',
+        read: 'Couldn\'t open that file — try a different photo.',
+        nokey: 'Add your Anthropic API key in Settings to use this outside Claude.',
+        badkey: 'That API key was rejected — check it in Settings.',
+      };
+      scanErrorMsg = messages[e.message] || 'Something went wrong reading that image — try again.';
+      render();
+    }
+  };
+  const scanRetake = wrap.querySelector('#scanRetake');
+  if(scanRetake) scanRetake.onclick = ()=>{
+    scanPreviewUrl = null; scanBase64 = null; scanResults = null; scanErrorMsg = null; scanLoading = false;
+    render();
+  };
+  wrap.querySelectorAll('.scan-add-btn').forEach(b=>{
+    b.onclick = ()=>{
+      const idx = parseInt(b.dataset.idx, 10);
+      const r = scanResults[idx];
+      if(!r || r._added) return;
+      const cat = r.type === 'phrase' ? 'Phrases' : 'Custom';
+      const w = {
+        id: 'c_'+Date.now()+'_'+idx, cat, eng: r.eng,
+        cChar: r.cChar, cRom: r.cRom, mChar: r.mChar, mRom: r.mRom,
+        same: r.cChar === r.mChar,
+      };
+      if(r.lit){ w.cLit = r.lit; w.mLit = r.lit; }
+      if(r.note) w.note = r.note;
+      customWords.push(w);
+      saveCustomWords();
+      r._added = true;
+      render();
+    };
+  });
+
+  const sl = wrap.querySelector('#startLearn');
+  if(sl) sl.onclick = ()=>{
+    state = {view:'learn', queue: buildLearnQueue(scopeCats), idx:0, revealed:false, results:{gotIt:0,shaky:0}};
+    render();
+  };
+  const qb = wrap.querySelector('#startQuiz');
+  if(qb) qb.onclick = ()=>{
+    const q = buildQuizQueue(scopeCats);
+    if(q.length===0) return;
+    state = {view:'quiz', queue:q, idx:0, sub:0, score:0, answered:false};
+    render();
+  };
+  wrap.querySelectorAll('.cat-card').forEach(b=>{
+    b.onclick = ()=>{ state = {view:'browse', cat:b.dataset.cat}; render(); };
+  });
+  const bp = wrap.querySelector('#browsePhrases');
+  if(bp) bp.onclick = ()=>{ state = {view:'browse', cat:'Phrases'}; render(); };
+  wrap.querySelectorAll('.lt-btn').forEach(b=>{
+    b.onclick = ()=>{ roleplayLang = b.dataset.lang; render(); };
+  });
+  wrap.querySelectorAll('.scenario-card').forEach(b=>{
+    b.onclick = ()=>{
+      const scenario = SCENARIOS.find(s=>s.id===b.dataset.sid);
+      state = {view:'roleplay', scenario, idx:0, lang:roleplayLang, transcript:'', listening:false, helpShown:false};
+      render();
+    };
+  });
+}
+
+function sessionTopBar(current,total,onClose){
+  const bar = document.createElement('div');
+  bar.className = 'session-top';
+  bar.innerHTML = `
+    <button class="icon-btn" id="closeBtn">${icon('close')}</button>
+    <div class="dots">${Array.from({length:total}).map((_,i)=>`<div class="dot ${i<current?'done':(i===current?'current':'')}"></div>`).join('')}</div>
+  `;
+  bar.querySelector('#closeBtn').onclick = onClose;
+  return bar;
+}
+
+function renderLearn(){
+  const {queue, idx, revealed} = state;
+  if(idx >= queue.length){ state.view='learnSummary'; return render(); }
+  const w = queue[idx];
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.appendChild(sessionTopBar(idx, queue.length, ()=>{state={view:'home'};render();}));
+
+  const body = document.createElement('div');
+  body.className = 'session-body';
+  body.innerHTML = `
+    <div class="cat-tag">${w.cat}</div>
+    <div class="eng">${w.eng}</div>
+    <div class="bridge-card">
+      <div class="rail canto ${revealed?'':'hidden-veil'}">
+        <div class="rail-head"><span class="tag">Cantonese</span>${revealed?speakBtnHTML(w.cChar,'canto'):''}</div>
+        ${w.cRom}
+        ${revealed && w.cLit ? `<div class="lit">lit. "${w.cLit}"</div>` : ''}
+      </div>
+      <div class="connector c-top ${revealed?'':'hidden-veil'}"></div>
+      <div class="connector c-bot ${revealed?'':'hidden-veil'}"></div>
+      <div class="rail mando ${revealed?'':'hidden-veil'}">
+        <div class="rail-head"><span class="tag">Mandarin</span>${revealed?speakBtnHTML(w.mChar,'mando'):''}</div>
+        ${w.mRom}
+        ${revealed && w.mLit ? `<div class="lit">lit. "${w.mLit}"</div>` : ''}
+      </div>
+      ${revealed?`<div class="hanzi-wrap"><div class="hanzi">${w.cChar}${w.same?'':` · ${w.mChar}`}</div></div>`:''}
+    </div>
+    ${!revealed?`<button class="reveal-btn" id="revealBtn">Tap to reveal pronunciation</button>`:''}
+    ${revealed && w.note ? `<div class="note-flag">${icon('spark')}<span>${w.note}</span></div>` : ''}
+    ${revealed ? `<div class="rate-row">
+        <button class="rate-btn shaky" id="rateShaky">Still shaky<span>Review again soon</span></button>
+        <button class="rate-btn got-it" id="rateGot">Got it<span>Feels solid</span></button>
+      </div>` : ''}
+  `;
+  wrap.appendChild(body);
+  app.appendChild(wrap);
+  wireSpeakButtons(wrap);
+
+  const rb = wrap.querySelector('#revealBtn');
+  if(rb) rb.onclick = ()=>{ state.revealed = true; render(); };
+  const shaky = wrap.querySelector('#rateShaky');
+  const got = wrap.querySelector('#rateGot');
+  if(shaky) shaky.onclick = ()=> answerLearn(w,'learning');
+  if(got) got.onclick = ()=> answerLearn(w,'known');
+}
+function answerLearn(w, status){
+  const prevShaky = (progress[w.id] && progress[w.id].shakyCount) || 0;
+  progress[w.id] = { status, shakyCount: status==='learning' ? prevShaky+1 : prevShaky };
+  if(status==='known') state.results.gotIt++; else state.results.shaky++;
+  saveProgress();
+  state.idx++; state.revealed = false;
+  render();
+}
+
+function renderLearnSummary(){
+  const today = todayStr();
+  if(meta.lastPracticeDate !== today){
+    if(meta.lastPracticeDate){
+      const diffDays = Math.round((new Date(today) - new Date(meta.lastPracticeDate))/86400000);
+      meta.streak = diffDays===1 ? (meta.streak||0)+1 : 1;
+    } else { meta.streak = 1; }
+    meta.lastPracticeDate = today;
+    saveMeta();
+  }
+  const {gotIt, shaky} = state.results;
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.innerHTML = `
+    <div class="summary-wrap" style="flex:1;">
+      <div class="summary-icon">橋</div>
+      <h2>Session complete</h2>
+      <p>${meta.streak} day streak. Come back tomorrow to keep the bridge standing.</p>
+      <div class="summary-stats">
+        <div class="s"><div class="n" style="color:var(--good)">${gotIt}</div><div class="l">Got it</div></div>
+        <div class="s"><div class="n" style="color:var(--gold)">${shaky}</div><div class="l">Still shaky</div></div>
+      </div>
+      <button class="btn-primary" id="homeBtn" style="max-width:240px;">Back home</button>
+    </div>
+  `;
+  app.appendChild(wrap);
+  wrap.querySelector('#homeBtn').onclick = ()=>{ state={view:'home'}; render(); };
+}
+
+function renderQuiz(){
+  const {queue, idx, sub, score, answered} = state;
+  if(idx >= queue.length){ state.view='quizSummary'; return render(); }
+  const w = queue[idx];
+  const isJyutping = sub===0;
+  const correctVal = isJyutping ? w.cRom : w.mRom;
+  const pool = allWords().filter(x=>x.id!==w.id).map(x=> isJyutping ? x.cRom : x.mRom);
+  const distractors = shuffle([...new Set(pool)]).slice(0,3);
+  const options = shuffle([correctVal, ...distractors]);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  const top = sessionTopBar(idx, queue.length, ()=>{state={view:'home'};render();});
+  top.querySelector('.dots').insertAdjacentHTML('afterend', `<div class="score-pill">${score}</div>`);
+  wrap.appendChild(top);
+
+  const body = document.createElement('div');
+  body.className = 'session-body';
+  body.innerHTML = `
+    <div class="quiz-q">How do you say this in ${isJyutping?'Cantonese':'Mandarin'}?</div>
+    <div class="quiz-eng" style="font-size:22px;font-weight:700;color:var(--paper);margin-bottom:30px;">${w.eng}</div>
+    <div class="opt-grid">
+      ${options.map((o,i)=>`<button class="opt" data-val="${o.replace(/"/g,'&quot;')}">${o}</button>`).join('')}
+    </div>
+  `;
+  wrap.appendChild(body);
+  app.appendChild(wrap);
+
+  wrap.querySelectorAll('.opt').forEach(btn=>{
+    btn.onclick = ()=>{
+      if(state.answered) return;
+      state.answered = true;
+      const val = btn.dataset.val;
+      const correct = val === correctVal;
+      wrap.querySelectorAll('.opt').forEach(b=>{
+        b.disabled = true;
+        if(b.dataset.val === correctVal) b.classList.add('correct');
+        else if(b === btn && !correct) b.classList.add('wrong');
+      });
+      if(correct) state.score++;
+      setTimeout(()=>{
+        if(sub===0){ state.sub=1; state.answered=false; }
+        else { state.idx++; state.sub=0; state.answered=false; }
+        render();
+      }, 750);
+    };
+  });
+}
+
+function renderQuizSummary(){
+  const total = state.queue.length * 2;
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.innerHTML = `
+    <div class="summary-wrap" style="flex:1;">
+      <div class="summary-icon">橋</div>
+      <h2>Quiz complete</h2>
+      <p>You matched ${state.score} of ${total} pronunciations correctly.</p>
+      <div class="summary-stats">
+        <div class="s"><div class="n" style="color:var(--gold)">${state.score}/${total}</div><div class="l">Score</div></div>
+      </div>
+      <button class="btn-primary" id="homeBtn" style="max-width:240px;">Back home</button>
+    </div>
+  `;
+  app.appendChild(wrap);
+  wrap.querySelector('#homeBtn').onclick = ()=>{ state={view:'home'}; render(); };
+}
+
+function renderBrowse(){
+  const words = allWords().filter(w=>w.cat===state.cat);
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.appendChild(sessionTopBar(0,0,()=>{state={view:'home'};render();}));
+  wrap.querySelector('.dots').outerHTML = `<div style="flex:1;font-weight:700;font-size:15px;">${state.cat}</div>`;
+
+  const list = document.createElement('div');
+  list.className = 'browse-list';
+  list.innerHTML = words.map(w=>`
+    <div class="browse-item">
+      <div class="mid">
+        <div class="e">${w.eng}</div>
+        <div class="rails">
+          <span class="c">${w.cRom} ${speakBtnHTML(w.cChar,'canto').replace('speak-btn','speak-btn small')}</span>
+          <span class="m">${w.mRom} ${speakBtnHTML(w.mChar,'mando').replace('speak-btn','speak-btn small')}</span>
+        </div>
+        ${(w.cLit||w.mLit)?`<div style="font-size:11px;font-style:italic;color:var(--muted);opacity:.75;margin-top:5px;">${
+          w.cLit && w.mLit
+            ? (w.cLit===w.mLit ? `lit. "${w.cLit}"` : `lit. "${w.cLit}" / "${w.mLit}"`)
+            : `lit. "${w.cLit||w.mLit}"`
+        }</div>`:''}
+        <div style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--muted);opacity:.65;margin-top:6px;">${w.cChar}${w.same?'':` · ${w.mChar}`}</div>
+      </div>
+      ${w.note?`<div class="flag" title="${w.note.replace(/"/g,'&quot;')}"></div>`:''}
+    </div>
+  `).join('');
+  wrap.appendChild(list);
+  app.appendChild(wrap);
+  wireSpeakButtons(wrap);
+}
+
+function renderRoleplaySession(){
+  const {scenario, idx, lang, transcript, listening, helpShown} = state;
+  if(idx >= scenario.turns.length){ state.view='roleplaySummary'; return render(); }
+  const t = scenario.turns[idx];
+  const isCanto = lang === 'canto';
+  const npcChar = isCanto ? t.npcCChar : t.npcMChar;
+  const npcRom = isCanto ? t.npcCRom : t.npcMRom;
+  const expChar = isCanto ? t.expCChar : t.expMChar;
+  const expRom = isCanto ? t.expCRom : t.expMRom;
+  const sttLang = isCanto ? 'zh-HK' : 'zh-CN';
+  const kind = isCanto ? 'canto' : 'mando';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.appendChild(sessionTopBar(idx, scenario.turns.length, ()=>{ stopRecognition(); state={view:'home'}; render(); }));
+
+  const body = document.createElement('div');
+  body.className = 'session-body';
+  body.innerHTML = `
+    <div class="cat-tag">${scenario.title} · ${isCanto?'Cantonese':'Mandarin'}</div>
+    <div class="npc-bubble">
+      <div class="npc-eng">${t.npcEng}</div>
+      <div class="npc-rom ${kind}">${npcRom} ${speakBtnHTML(npcChar,kind)}</div>
+    </div>
+
+    <div class="your-turn-label">Your turn — respond out loud</div>
+    <button class="mic-btn ${listening?'live':''}" id="micBtn">
+      ${icon('mic')}
+      <span>${listening?'Listening…':'Tap to speak'}</span>
+    </button>
+    <div class="transcript-box ${transcript?'has-text':''}" id="transcriptBox">${transcript ? `“${transcript}”` : 'What you say will appear here'}</div>
+
+    <div class="help-row">
+      <button class="btn-secondary" id="helpBtn">${helpShown?'Hide help':'Need help?'}</button>
+      <button class="btn-secondary next-btn" id="nextTurnBtn">Next</button>
+    </div>
+
+    ${helpShown ? `
+      <div class="help-panel">
+        <div class="help-label">Try saying</div>
+        <div class="help-eng">${t.expEng}</div>
+        <div class="help-rom ${kind}">${expRom}</div>
+        <div class="help-char">${expChar}</div>
+      </div>
+    ` : ''}
+  `;
+  wrap.appendChild(body);
+  app.appendChild(wrap);
+  wireSpeakButtons(wrap);
+
+  wrap.querySelector('#helpBtn').onclick = ()=>{ state.helpShown = !state.helpShown; render(); };
+  wrap.querySelector('#nextTurnBtn').onclick = ()=>{
+    stopRecognition();
+    state.idx++; state.transcript=''; state.listening=false; state.helpShown=false;
+    render();
+  };
+  wrap.querySelector('#micBtn').onclick = ()=>{
+    if(state.listening){ stopRecognition(); state.listening=false; render(); return; }
+    if(!SpeechRec){ showAudioNote('Speech recognition isn\'t supported in this browser — try Chrome.'); return; }
+    state.listening = true; render();
+    startRecognition(sttLang,
+      (text)=>{ state.transcript = text; const box=document.getElementById('transcriptBox'); if(box){ box.textContent = `"${text}"`; box.classList.add('has-text'); } },
+      ()=>{ state.listening=false; const btn=document.getElementById('micBtn'); if(btn){ btn.classList.remove('live'); btn.querySelector('span').textContent='Tap to speak'; } },
+      (err)=>{ state.listening=false; render(); showAudioNote(err==='unsupported' ? 'Speech recognition isn\'t supported in this browser.' : 'Couldn\'t access the microphone — check your browser permissions.'); }
+    );
+  };
+}
+
+function renderRoleplaySummary(){
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.innerHTML = `
+    <div class="summary-wrap" style="flex:1;">
+      <div class="summary-icon">橋</div>
+      <h2>Scenario complete</h2>
+      <p>You worked through "${state.scenario.title}" in ${state.lang==='canto'?'Cantonese':'Mandarin'}. Try it again in the other language, or pick a new scenario.</p>
+      <button class="btn-primary" id="homeBtn" style="max-width:240px;">Back home</button>
+    </div>
+  `;
+  app.appendChild(wrap);
+  wrap.querySelector('#homeBtn').onclick = ()=>{ state={view:'home'}; render(); };
+}
+
+function renderSettings(){
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.appendChild(sessionTopBar(0,0,()=>{state={view:'home'};render();}));
+  wrap.querySelector('.dots').outerHTML = `<div style="flex:1;font-weight:700;font-size:15px;">Settings</div>`;
+
+  const body = document.createElement('div');
+  body.style.padding = '4px 20px 30px 20px';
+
+  if(!IS_STANDALONE){
+    body.innerHTML = `
+      <div class="mic-warn subtle">You're using this inside Claude — Add and Scan already work here with no setup needed. An API key is only needed for the standalone version installed on your phone.</div>
+    `;
+    wrap.appendChild(body);
+    app.appendChild(wrap);
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="add-label" style="margin-top:6px;">Anthropic API key</div>
+    <input class="add-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." value="${apiKey ? apiKey : ''}" />
+    <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6;">
+      Needed for Add and Scan to work standalone — everything else (practice, quiz, browse, audio) works without one.
+      <br><br>
+      Get a key at <b style="color:var(--paper);">console.anthropic.com</b> → API Keys. Usage is billed to your own account, typically a fraction of a cent per lookup.
+      <br><br>
+      This key is stored only in this browser on this device, never sent anywhere except directly to Anthropic. Treat it like a password — anyone with access to this device's browser storage could see it.
+    </div>
+    <button class="btn-primary" id="saveKeyBtn" style="margin-top:16px;">Save key</button>
+    ${apiKey ? `<button class="btn-secondary" id="clearKeyBtn">Remove saved key</button>` : ''}
+  `;
+  wrap.appendChild(body);
+  app.appendChild(wrap);
+
+  wrap.querySelector('#saveKeyBtn').onclick = async ()=>{
+    const val = wrap.querySelector('#apiKeyInput').value.trim();
+    if(!val){ showAudioNote('Paste your API key first.'); return; }
+    await saveApiKey(val);
+    showAudioNote('API key saved.');
+    render();
+  };
+  const clearBtn = wrap.querySelector('#clearKeyBtn');
+  if(clearBtn) clearBtn.onclick = async ()=>{
+    await clearApiKey();
+    render();
+  };
+}
+
+function renderProgressList(){
+  const words = allWords();
+  const known = words.filter(w=>statusOf(w.id)==='known')
+    .sort((a,b)=> shakyCountOf(b.id) - shakyCountOf(a.id));
+  const learning = words.filter(w=>statusOf(w.id)==='learning')
+    .sort((a,b)=> shakyCountOf(b.id) - shakyCountOf(a.id));
+  const untried = words.filter(w=>statusOf(w.id)==='new');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in';
+  wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
+  wrap.appendChild(sessionTopBar(0,0,()=>{state={view:'home'};render();}));
+  wrap.querySelector('.dots').outerHTML = `<div style="flex:1;font-weight:700;font-size:15px;">All progress</div>`;
+
+  const rowsHTML = (list, dotClass) => list.map(w=>{
+    const sc = shakyCountOf(w.id);
+    return `
+    <div class="progress-row">
+      <div class="p-dot ${dotClass}"></div>
+      <div class="p-mid">
+        <div class="p-eng">${w.eng}</div>
+        <div class="p-rom">${w.cRom} <span class="sep">·</span> ${w.mRom}</div>
+      </div>
+      ${sc>0 ? `<div class="p-shaky">${sc}× shaky</div>` : ''}
+      <div class="p-cat">${w.cat}</div>
+    </div>
+  `;}).join('');
+
+  const body = document.createElement('div');
+  body.className = 'browse-list';
+  body.innerHTML = `
+    <div class="progress-section" id="section-known">
+      <div class="progress-head"><span class="p-dot known"></span>Known <span class="p-count">${known.length}</span></div>
+      ${known.length ? rowsHTML(known,'known') : `<div class="mic-warn subtle">Nothing marked known yet.</div>`}
+    </div>
+    <div class="progress-section" id="section-learning">
+      <div class="progress-head"><span class="p-dot learning"></span>Still shaky <span class="p-count">${learning.length}</span></div>
+      ${learning.length ? rowsHTML(learning,'learning') : `<div class="mic-warn subtle">Nothing in progress right now.</div>`}
+    </div>
+    <div class="progress-section" id="section-new">
+      <div class="progress-head"><span class="p-dot new"></span>Not tried yet <span class="p-count">${untried.length}</span></div>
+      ${untried.length ? rowsHTML(untried,'new') : `<div class="mic-warn subtle">You've tried everything at least once.</div>`}
+    </div>
+  `;
+  wrap.appendChild(body);
+  app.appendChild(wrap);
+  if(state.focus){
+    const target = document.getElementById('section-'+state.focus);
+    if(target) target.scrollIntoView({block:'start'});
+  }
+}
+
+if(IS_STANDALONE && 'serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
