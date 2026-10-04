@@ -1,0 +1,130 @@
+# Everyday words where Cantonese and Mandarin use different vocabulary — hand-checked.
+# English (synonyms comma-separated) | Cantonese (Traditional) | Mandarin (Traditional)
+# Readings come from the dictionary at build time; pin one with "字 [reading]". Matched before the
+# statistical lookup. The last section pins the everyday word where the dictionary's top pick is off.
+eat | 食 | 吃
+drink | 飲 | 喝
+look, see, watch, look at | 睇 | 看 [kàn]
+he, she, him, her | 佢 | 他
+they, them | 佢哋 | 他們
+we, us | 我哋 | 我們
+you (plural), you all | 你哋 | 你們
+like | 鍾意 | 喜歡
+now, right now | 而家 | 現在
+today | 今日 | 今天
+tomorrow | 聽日 | 明天
+yesterday | 尋日 | 昨天
+day after tomorrow | 後日 | 後天
+day before yesterday | 前日 | 前天
+what | 咩 | 什麼
+where | 邊度 | 哪裡
+who | 邊個 | 誰
+why | 點解 | 為什麼
+how | 點樣 | 怎麼樣
+how much, how much money | 幾多錢 | 多少錢
+how many | 幾多 | 多少
+when | 幾時 | 什麼時候
+which | 邊個 | 哪個
+this, this one | 呢個 | 這個
+that, that one | 嗰個 | 那個
+these | 呢啲 | 這些
+those | 嗰啲 | 那些
+here | 呢度 [ni1 dou6] | 這裡
+there | 嗰度 | 那裡
+not | 唔 | 不
+don't have, not have, there isn't | 冇 | 沒有
+is, am, are, to be, yes | 係 | 是
+no, isn't, is not | 唔係 | 不是
+at, in, located at | 喺 | 在
+give | 畀 | 給
+find, look for, search for | 搵 | 找
+sleep | 瞓覺 | 睡覺
+thing, stuff, something | 嘢 | 東西
+cheap | 平 | 便宜 [piányi]
+home | 屋企 | 家
+house | 屋 | 房子
+room | 房 | 房間
+walk | 行 | 走
+run | 走 | 跑 [pǎo]
+come | 嚟 [lei4] | 來
+stand | 企 | 站
+tired | 攰 | 累 [lèi]
+pretty, beautiful, good-looking | 靚 | 漂亮
+handsome | 靚仔 | 帥
+know | 知 | 知道
+understand | 明 | 懂
+think | 諗 | 想
+speak, say, talk | 講 | 說 [shuō]
+chat | 傾偈 | 聊天
+work | 做嘢 | 工作
+go to work | 返工 | 上班
+get off work, finish work | 放工 | 下班
+go to school | 返學 | 上學
+shower, take a shower, bathe | 沖涼 | 洗澡
+wear, put on | 着 [zoek3] | 穿
+clothes, clothing | 衫 | 衣服
+shoes | 鞋 | 鞋子
+umbrella | 遮 | 雨傘
+taxi, cab | 的士 | 出租車
+bus | 巴士 | 公交車
+refrigerator, fridge | 雪櫃 | 冰箱
+ice cream | 雪糕 | 冰淇淋
+delicious, tasty | 好食 | 好吃
+hungry | 肚餓 | 餓
+a little, a bit, a little bit | 少少 | 一點 [yìdiǎn]
+very | 好 | 很
+also, too | 都 | 也
+and, with | 同 | 和
+but | 但係 | 但是
+later, in a while | 遲啲 | 等一下 [děng yíxià]
+just now | 頭先 | 剛才
+always, all the time | 成日 | 總是
+sorry | 對唔住 | 對不起
+excuse me, please | 唔該 | 麻煩你
+thank you, thanks | 多謝 | 謝謝
+no problem | 冇問題 | 沒問題
+correct, right | 啱 | 對
+ugly | 核突 | 難看
+boring, bored | 悶 | 無聊
+angry | 嬲 | 生氣
+happy | 開心 | 高興
+scared, afraid | 驚 | 害怕
+cry | 喊 | 哭
+kiss | 錫 | 親
+hug | 攬 | 抱
+take, get, hold | 攞 | 拿
+throw | 掟 | 扔
+throw away | 掉 | 扔掉
+close, shut | 閂 | 關
+turn off, switch off | 熄 | 關
+cook | 煮飯 | 做飯
+boy | 男仔 | 男孩
+girl | 女仔 | 女孩
+child, kid, children, kids | 細路 | 小孩
+grandma (maternal) | 婆婆 | 外婆
+grandpa (maternal) | 公公 | 外公
+morning | 朝早 | 早上
+afternoon | 下晝 | 下午
+evening, night | 夜晚 | 晚上
+small, little | 細 | 小
+a lot, many, lots | 好多 | 很多
+fat | 肥 | 胖 [pàng]
+late | 遲 | 晚
+cold | 凍 | 冷
+rain | 落雨 | 下雨
+know how to, can | 識 | 會
+pay | 畀錢 | 付錢
+pay the bill, the bill, check please | 埋單 | 買單
+cute | 得意 | 可愛
+naughty | 曳 | 調皮
+good night | 早唞 | 晚安
+good morning | 早晨 | 早安
+goodbye, bye | 拜拜 | 再見
+cheers | 飲勝 | 乾杯
+
+# Same in both languages, but the dictionary ranks a formal/old word first.
+teacher | 老師 | 老師
+receipt | 收據 | 收據
+phone, telephone | 電話 | 電話
+mobile phone, cell phone, cellphone | 手機 | 手機
+rice, cooked rice | 飯 | 米飯

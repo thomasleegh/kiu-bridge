@@ -1,3 +1,5 @@
 .DS_Store
 node_modules/
 .env
+# inputs for scripts/build-dict.mjs (downloaded, large)
+dict-src/

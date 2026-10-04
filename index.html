@@ -10,8 +10,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kiu">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- Fonts load without blocking first paint (an @import here held the whole page until Google answered,
+     and hung offline). System fonts show until they arrive; the service worker caches them for offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
 :root{
   --ink:#14161B;
@@ -322,6 +326,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .browse-item .del-btn svg{width:12px;height:12px;}
 .custom-tag{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);background:rgba(216,166,87,0.14);padding:2px 7px;border-radius:6px;margin-left:6px;vertical-align:middle;}
 
+.dict-status{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+.dict-status:empty{display:none;}
+#addResults:not(:empty){margin-top:12px;}
+.dict-card{background:rgba(0,0,0,0.18);}
+.dict-card .scan-result-rails span{display:inline-flex;align-items:center;gap:6px;}
+.dict-chars{font-family:'Noto Serif TC',serif;font-size:13px;color:var(--muted);opacity:.7;}
+.dict-note{font-size:11.5px;color:var(--gold);margin-top:6px;line-height:1.45;}
+.scan-add-btn:disabled{opacity:1;}
+
 /* ---------- scan ---------- */
 .scan-drop{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
@@ -528,6 +541,7 @@ let roleplayLang = 'mando'; // 'canto' | 'mando'
 let progress = {};   // { id: {status:'new'|'learning'|'known'} }
 let meta = { streak:0, lastPracticeDate:null };
 let customWords = []; // user-added words/phrases, cat:'Custom'
+let pendingAdds = []; // English typed while offline with no dictionary match — sent to AI once back online
 let apiKey = null; // only used when IS_STANDALONE — user's own Anthropic API key for Add/Scan
 let scanPreviewUrl = null;   // data URL for the image thumbnail
 let scanBase64 = null;       // raw base64 payload sent to the API
@@ -647,14 +661,21 @@ async function loadData(){
   try{ const r = await window.storage.get('progress'); progress = r ? JSON.parse(r.value) : {}; }catch(e){ progress = {}; }
   try{ const r = await window.storage.get('meta'); meta = r ? JSON.parse(r.value) : {streak:0,lastPracticeDate:null}; }catch(e){ meta = {streak:0,lastPracticeDate:null}; }
   try{ const r = await window.storage.get('customWords'); customWords = r ? JSON.parse(r.value) : []; }catch(e){ customWords = []; }
+  try{ const r = await window.storage.get('pendingAdds'); pendingAdds = r ? JSON.parse(r.value) : []; }catch(e){ pendingAdds = []; }
   if(IS_STANDALONE){
     try{ const r = await window.storage.get('apiKey'); apiKey = r ? r.value : null; }catch(e){ apiKey = null; }
   }
   render();
+  if(IS_STANDALONE){
+    // Fetched after first paint so it never slows startup; the service worker keeps it for offline use.
+    setTimeout(()=>OfflineDict.load().then(()=>{ if(state.view==='home' && homeTab==='add') refreshAddResults(); }), 400);
+  }
+  processPendingAdds();
 }
 async function saveProgress(){ try{ await window.storage.set('progress', JSON.stringify(progress)); }catch(e){} }
 async function saveMeta(){ try{ await window.storage.set('meta', JSON.stringify(meta)); }catch(e){} }
 async function saveCustomWords(){ try{ await window.storage.set('customWords', JSON.stringify(customWords)); }catch(e){} }
+async function savePendingAdds(){ try{ await window.storage.set('pendingAdds', JSON.stringify(pendingAdds)); }catch(e){} }
 async function saveApiKey(key){ apiKey = key; try{ await window.storage.set('apiKey', key); }catch(e){} }
 async function clearApiKey(){ apiKey = null; try{ await window.storage.delete('apiKey'); }catch(e){} }
 
@@ -720,6 +741,173 @@ English word or phrase: "${engText}"`;
   if(!parsed.cChar || !parsed.cRom || !parsed.mChar || !parsed.mRom) throw new Error('incomplete');
   return parsed;
 }
+
+// <offline-dict> — offline English ↔ Cantonese/Mandarin lookup over dict.json (built by
+// scripts/build-dict.mjs; tested by scripts/test-lookup.mjs, which evals this block in Node).
+// pairs: hand-checked everyday words (mostly where the two languages differ) — [[english...], cChar, jyutping, mChar, pinyin]
+// rows:  [trad, simp, pinyin, jyutping, glosses "/"-joined, mandoFreq, cantoFreq, flags(1=Canto-only, 2=rare)]
+const OfflineDict = (() => {
+  let rows = null, senses = null, byHead = null, pairByEng = null, pairByChar = null, loading = null, failed = false;
+  const HAN = /[㐀-鿿豈-﫿]/;
+  const AMBIGUOUS = new Set(['走', '都', '同', '好', '平', '房', '屋', '遲', '掉', '明', '知', '細', '晚', '係', '飯']);
+  const CANTO_CHARS = /[嘅咗嚟啲冇喺嘢佢哋睇咩乜噉嗰唔嘞喎㗎啩嚿搵咁冚攞嘥瞓諗嬲氹靚咪掂嗱噏咋未]/;
+  const normSense = (s) => s.toLowerCase().replace(/[.!?"“”]/g, '')
+    .replace(/^\s*(to|a|an|the|be)\s+/, '').replace(/\s+/g, ' ').trim();
+  const normQuery = (s) => normSense(s.replace(/^\s*(how do you say|what is|what's)\s+/i, '').replace(/\([^)]*\)/g, ''));
+  function setData(d){
+    rows = d.rows;
+    senses = rows.map(row => row[4].split('/').map(g => g.replace(/\([^)]*\)/g, ' ').split(/[;,]/).map(normSense).filter(Boolean)));
+    byHead = new Map();
+    rows.forEach((row, i) => {
+      for(const h of [row[0], row[1]]) if(h){ if(!byHead.has(h)) byHead.set(h, []); byHead.get(h).push(i); }
+    });
+    pairByEng = new Map(); pairByChar = new Map();
+    for(const p of d.pairs || []){
+      for(const e of p[0]) pairByEng.set(normQuery(e), p);
+      pairByChar.set(p[1], p); if(!pairByChar.has(p[3])) pairByChar.set(p[3], p);
+    }
+  }
+  function load(url){
+    if(rows) return Promise.resolve(true);
+    if(!loading){
+      failed = false;
+      loading = fetch(url || 'dict.json').then(r => { if(!r.ok) throw new Error('http'); return r.json(); })
+        .then(d => { setData(d); return true; })
+        .catch(() => { loading = null; failed = true; return false; });
+    }
+    return loading;
+  }
+  // How well entry i's English senses match query q: 100 exact, less for a whole-word hit inside a longer sense.
+  function matchScore(i, q, qWords){
+    let best = 0;
+    senses[i].forEach((group, gi) => {
+      for(const s of group){
+        let sc = 0;
+        if(s === q) sc = 100;
+        else if(qWords.length <= 3 && (' ' + s + ' ').includes(' ' + q + ' ')){
+          const extra = s.split(' ').length - qWords.length;
+          sc = extra <= 3 ? 55 - extra * 10 : 0;
+        }
+        if(sc) best = Math.max(best, sc - gi * 10);
+      }
+    });
+    return best;
+  }
+  // Pick for words outside the pairs list: strong match + common in Mandarin, nudged by everyday spoken
+  // use (HKCanCor: 電腦 over 計算機). Multi-character words beat single characters, which are often
+  // bound forms or classical senses (今 vs 現在 for "now").
+  const mandoScore = (r, m) => m + r[5] * 3 + r[6] * 2 + (r[0].length > 1 ? 8 : 0) - (r[7] & 2 ? 30 : 0) - (r[7] & 1 ? 1000 : 0);
+  const altScore = (r, m) => m + r[5] * 2 + r[6] * 3 - (r[7] & 2 ? 30 : 0);
+  const firstSense = (r) => r[4].split('/')[0].replace(/\([^)]*\)/g, '').split(';')[0].trim();
+  const fromPair = (p, eng) => ({
+    eng, cChar: p[1], cRom: p[2], mChar: p[3], mRom: p[4], same: p[1] === p[3], source: 'dict',
+    note: p[1] === p[3] ? '' : `Different word: Cantonese says ${p[1]}, Mandarin says ${p[3]}.`,
+  });
+  const fromRow = (r, eng) => ({ eng, cChar: r[0], cRom: r[3], mChar: r[0], mRom: r[2], same: true, source: 'dict', note: '' });
+  const fromBridge = (b, eng) => ({ eng, cChar: b.c, cRom: b.cr, mChar: b.m, mRom: b.mr, same: b.c === b.m, source: 'dict', note: '' });
+  function searchEnglish(raw){
+    const q = normQuery(raw);
+    if(!q) return [];
+    const out = [];
+    const pair = pairByEng.get(q);
+    if(pair) out.push(fromPair(pair, raw.trim()));
+    const qWords = q.split(' ');
+    const hits = [];
+    for(let i = 0; i < rows.length; i++){
+      const m = matchScore(i, q, qWords);
+      if(m >= 25) hits.push({ i, m });
+    }
+    if(!pair && hits.length){
+      // Words outside the hand-checked list: assume Cantonese uses the same word (true for most vocabulary),
+      // read in Jyutping. Cantonese-only words still show up below as alternatives.
+      const best = hits.reduce((a, h) => (mandoScore(rows[h.i], h.m) > mandoScore(rows[a.i], a.m) ? h : a));
+      out.push(fromRow(rows[best.i], raw.trim()));
+    }
+    hits.sort((a, b) => altScore(rows[b.i], b.m) - altScore(rows[a.i], a.m));
+    for(const h of hits){
+      if(out.length >= 5) break;
+      const r = rows[h.i];
+      // Alternatives only when they're a close match and a word people actually use.
+      if(h.m < 45 || r[5] + r[6] < 8 || out.some(o => o.cChar === r[0] || o.mChar === r[0])) continue;
+      out.push({ ...fromBridge(bridgeWord(r[0]), firstSense(r)), alt: true, cantoOnly: !!(r[7] & 1) });
+    }
+    return out;
+  }
+  const rowOf = (w) => byHead.has(w) ? rows[byHead.get(w)[0]] : null;
+  const pairFor = (w) => AMBIGUOUS.has(w) ? null : pairByChar.get(w);
+  // Swap the hand-checked words inside a compound, longest first (喺邊度 -> 在哪裡, 吃飯 -> 食飯).
+  function swapInside(word, toMando){
+    const out = [];
+    for(let i = 0; i < word.length;){
+      let len = Math.min(4, word.length - i);
+      for(; len > 0; len--){
+        const sub = word.slice(i, i + len), pr = pairFor(sub);
+        if(pr && sub === (toMando ? pr[1] : pr[3])){ out.push(toMando ? [pr[3], pr[4]] : [pr[1], pr[2]]); break; }
+        if(len === 1){ const r = rowOf(sub); out.push([sub, r ? r[toMando ? 2 : 3] : '']); }
+      }
+      i += len || 1;
+    }
+    return [out.map(x => x[0]).join(''), out.map(x => x[1]).join(toMando ? '' : ' ')];
+  }
+  function bridgeWord(word){
+    const r = rowOf(word), pr = pairFor(word);
+    if(pr && word === pr[1]) return { c: pr[1], cr: pr[2], m: pr[3], mr: pr[4], eng: pr[0][0] };
+    // A Mandarin-side word only becomes Cantonese if Cantonese speakers don't use it too (吃 yes, 想 no).
+    if(pr && (!r || r[6] <= 2)) return { c: pr[1], cr: pr[2], m: pr[3], mr: pr[4], eng: pr[0][0] };
+    let c = word, cr = r[3], m = word, mr = r[2];
+    if(word.length > 1 && r[5] <= 4) [m, mr] = swapInside(word, true);                   // Cantonese-only compound
+    else if(word.length > 1 && r[6] <= 1 && !(r[7] & 1)) [c, cr] = swapInside(word, false); // Mandarin-only compound
+    return { c, cr, m, mr, eng: firstSense(r) };
+  }
+  // Chinese input: hand-checked pair, exact headword, else greedy longest-match segmentation for readings.
+  function searchChinese(raw){
+    const text = raw.replace(/[\s，。？！、,.?!]/g, '');
+    const pair = pairByChar.get(text);
+    if(pair) return [fromPair(pair, pair[0][0])];
+    const exact = byHead.get(text);
+    if(exact){
+      const r = rows[exact.reduce((a, b) => (rows[b][5] + rows[b][6] > rows[a][5] + rows[a][6] ? b : a))];
+      return [{ ...fromBridge(bridgeWord(text), firstSense(r)), cantoOnly: !!(r[7] & 1) }];
+    }
+    // Sentence: split into known words, and swap each word that has a hand-checked counterpart
+    // (食 -> 吃) so each line reads in its own language. Single characters with several everyday
+    // meanings (走 leave/run, 都 also/all, 好 very/good…) are left alone rather than guessed.
+    const parts = [];
+    for(let p = 0; p < text.length;){
+      let len = Math.min(8, text.length - p), word = null;
+      for(; len > 0; len--){ const w = text.slice(p, p + len); if(byHead.has(w) || pairByChar.has(w)){ word = w; break; } }
+      if(!word) return [];
+      parts.push(bridgeWord(word));
+      p += len;
+    }
+    const cChar = parts.map(x => x.c).join(''), mChar = parts.map(x => x.m).join('');
+    // Cantonese grammar words (咗, 未, 嘅…) have no word-for-word Mandarin, so say the line is rough.
+    const roughMando = CANTO_CHARS.test(mChar);
+    return [{
+      eng: parts.map(x => x.eng).join(' + '), cChar, mChar, same: cChar === mChar, source: 'dict', wordByWord: true,
+      cRom: parts.map(x => x.cr).join(' '), mRom: parts.map(x => x.mr).join(' '),
+      note: roughMando ? 'Word-by-word guess — Cantonese grammar here (e.g. 咗, 未) doesn\'t carry over. Ask AI for natural Mandarin.' : 'Word-by-word guess — check with AI for anything important.',
+    }];
+  }
+  return {
+    load, setData,
+    get ready(){ return !!rows; }, get failed(){ return failed; },
+    search(raw){ if(!rows || !raw || !raw.trim()) return []; return HAN.test(raw) ? searchChinese(raw) : searchEnglish(raw); },
+  };
+})();
+// </offline-dict>
+
+// Built-in and saved words that match what's typed — checked before the dictionary, works with no download.
+function searchAppWords(raw){
+  const q = raw.trim().toLowerCase().replace(/[?!.]/g, '');
+  if(!q) return [];
+  const isHan = /[㐀-鿿]/.test(q);
+  return allWords().filter(w => isHan
+    ? (w.cChar === raw.trim() || w.mChar === raw.trim())
+    : w.eng.toLowerCase().replace(/[?!.]/g, '').split(/\s*\/\s*/).concat(w.eng.toLowerCase().replace(/[?!.]/g, '')).includes(q)
+  ).slice(0, 3).map(w => ({ ...w, source: 'app' }));
+}
+function escHTML(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // Downscale + re-encode as JPEG before sending, so photos from a phone camera
 // (often several MB) don't balloon into a huge base64 payload.
@@ -800,6 +988,42 @@ If there is no Chinese text anywhere in the image, respond with exactly: []`;
 }
 
 function allWords(){ return VOCAB.concat(customWords); }
+function addCustomWord(eng, r, isPhrase){
+  const w = {
+    id: 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), cat: isPhrase ? 'Phrases' : 'Custom', eng,
+    cChar: r.cChar, cRom: r.cRom, mChar: r.mChar, mRom: r.mRom, same: r.cChar === r.mChar,
+  };
+  if(r.lit){ w.cLit = r.lit; w.mLit = r.lit; }
+  if(r.note) w.note = r.note;
+  customWords.push(w);
+  saveCustomWords();
+  return w;
+}
+// AI-translates anything saved while offline. Runs on startup and whenever the phone comes back online.
+let pendingBusy = false;
+async function processPendingAdds(){
+  if(pendingBusy || !pendingAdds.length || !navigator.onLine || (IS_STANDALONE && !apiKey)) return;
+  pendingBusy = true;
+  let added = 0;
+  while(pendingAdds.length){
+    const eng = pendingAdds[0];
+    try{
+      const result = await translateEntry(eng);
+      addCustomWord(eng, result, result.type === 'phrase');
+      added++;
+    }catch(e){ break; } // offline again, bad key, etc. — keep the rest for next time
+    pendingAdds.shift();
+    await savePendingAdds();
+  }
+  pendingBusy = false;
+  if(added){
+    showAudioNote(`Translated ${added} saved word${added===1?'':'s'} now that you're online.`);
+    if(state.view==='home') render();
+  }
+}
+const onAddOrScan = () => state.view==='home' && (homeTab==='add' || homeTab==='scan');
+window.addEventListener('online', ()=>{ if(onAddOrScan()) render(); processPendingAdds(); });
+window.addEventListener('offline', ()=>{ if(onAddOrScan()) render(); });
 function wordCategories(){
   return [...new Set(allWords().filter(w=>w.cat!=='Phrases').map(w=>w.cat))];
 }
@@ -842,6 +1066,54 @@ function render(){
   else if(v==='roleplaySummary') renderRoleplaySummary();
   else if(v==='progressList') renderProgressList();
   else if(v==='settings') renderSettings();
+}
+
+let addQuery = ''; // what's typed in Add — kept across re-renders
+let addResults = [];
+// Fills the Add tab's live results in place (no full re-render, so the keyboard stays up while typing).
+function refreshAddResults(){
+  const box = document.getElementById('addResults'), status = document.getElementById('dictStatus');
+  if(!box) return;
+  const q = addQuery.trim();
+  const app = q ? searchAppWords(q) : [];
+  const dict = OfflineDict.search(q).filter(r => !app.some(a => a.cChar === r.cChar && a.mChar === r.mChar));
+  addResults = app.concat(dict).slice(0, 6);
+  if(status){
+    status.textContent = !IS_STANDALONE ? ''
+      : OfflineDict.ready ? (q && !addResults.length ? 'No offline match — try a single word, or translate with AI.' : (q ? '' : 'Offline dictionary ready — works without internet.'))
+      : OfflineDict.failed ? 'Offline dictionary not downloaded yet — open the app once with internet.'
+      : 'Downloading offline dictionary (one time)…';
+  }
+  const isSaved = (r) => customWords.some(w => w.cChar === r.cChar && w.mChar === r.mChar);
+  box.innerHTML = addResults.map((r, i) => {
+    const builtIn = r.source === 'app' && !String(r.id).startsWith('c_');
+    const saved = !builtIn && (r.source === 'app' || isSaved(r));
+    const tag = builtIn ? '' : r.cantoOnly ? 'Cantonese only' : r.wordByWord ? 'Phrase' : '';
+    return `
+    <div class="scan-result-card dict-card">
+      <div class="scan-result-top">
+        <div class="scan-result-eng">${escHTML(r.eng)}${tag ? ` <span class="custom-tag">${tag}</span>` : ''}</div>
+        <button class="scan-add-btn dict-add ${builtIn || saved ? 'added' : ''}" data-i="${i}" ${builtIn || saved ? 'disabled' : ''}>${builtIn ? 'In lessons' : saved ? 'Saved ✓' : 'Add'}</button>
+      </div>
+      <div class="scan-result-rails">
+        <span class="c">${escHTML(r.cRom)} ${speakBtnHTML(r.cChar,'canto').replace('speak-btn','speak-btn small')}</span>
+        <span class="m">${escHTML(r.mRom)} ${speakBtnHTML(r.mChar,'mando').replace('speak-btn','speak-btn small')}</span>
+      </div>
+      <div class="dict-chars">${escHTML(r.cChar)}${r.same ? '' : ` · ${escHTML(r.mChar)}`}</div>
+      ${r.note ? `<div class="dict-note">${escHTML(r.note)}</div>` : ''}
+    </div>`;
+  }).join('');
+  wireSpeakButtons(box);
+  box.querySelectorAll('.dict-add').forEach(b=>{
+    b.onclick = ()=>{
+      const r = addResults[+b.dataset.i];
+      if(!r || b.disabled) return;
+      // A sentence, or a typed phrase of 3+ words / a question, goes to Phrases practice; the rest to Words.
+      const isPhrase = !!r.wordByWord || r.eng.trim().split(/\s+/).length >= 3 || /\?$/.test(r.eng.trim());
+      addCustomWord(r.wordByWord ? r.eng.replace(/ \+ /g, ' ') : r.eng, r, isPhrase);
+      render();
+    };
+  });
 }
 
 function renderHome(){
@@ -945,13 +1217,22 @@ function renderHome(){
       ` : ''}
 
       ${isAdd ? `
-        ${(IS_STANDALONE && !apiKey) ? `<div class="mic-warn" id="addKeyNudge" style="cursor:pointer;">${icon('gear')} Add your API key in Settings to use this feature standalone — tap here.</div>` : ''}
         <div class="add-form">
-          <div class="add-label">English word or phrase</div>
-          <input class="add-input" id="addEng" placeholder="e.g. receipt, or 'can I get the check?'" />
-          <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">Just type it in English — I'll generate the Cantonese and Mandarin, and route it into Vocab practice or Phrases practice depending on whether it's a word or a full expression.</div>
-          <button class="btn-primary" id="addSubmit" style="margin-top:14px;">${icon('spark')} Add to my words</button>
+          <div class="add-label">English, or Chinese characters</div>
+          <input class="add-input" id="addEng" placeholder="e.g. eat, receipt, 食飯" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escHTML(addQuery)}" />
+          <div class="dict-status" id="dictStatus"></div>
+          <div id="addResults"></div>
+          <button class="btn-secondary" id="addSubmit">${icon('spark')} ${navigator.onLine ? 'Translate with AI' : 'Offline — save to translate later'}</button>
+          ${(IS_STANDALONE && !apiKey && navigator.onLine) ? `<div class="dict-status" id="addKeyNudge" style="cursor:pointer;text-decoration:underline;">AI needs your API key — tap to add it in Settings.</div>` : ''}
         </div>
+        ${pendingAdds.length ? `
+          <div class="section-label">Waiting for internet (${pendingAdds.length})</div>
+          ${pendingAdds.map((t,i)=>`
+            <div class="browse-item">
+              <div class="mid"><div class="e" style="margin:0;">${escHTML(t)}</div></div>
+              <button class="del-btn pending-del" data-i="${i}" aria-label="Remove">${icon('close')}</button>
+            </div>`).join('')}
+        ` : ''}
         <div class="section-label">Your words (${customWords.length})</div>
         ${customWords.length===0 ? `<div class="mic-warn subtle">Nothing added yet — words go into Vocab practice, phrases go into Phrases practice, automatically.</div>` : ''}
         ${customWords.map(w=>`
@@ -971,6 +1252,7 @@ function renderHome(){
       ` : ''}
 
       ${isScan ? `
+        ${!navigator.onLine ? `<div class="mic-warn subtle">Scan reads photos with AI, so it needs internet. Add works offline for single words.</div>` : ''}
         ${(IS_STANDALONE && !apiKey) ? `<div class="mic-warn" id="scanKeyNudge" style="cursor:pointer;">${icon('gear')} Add your API key in Settings to use this feature standalone — tap here.</div>` : ''}
         <input type="file" accept="image/*" id="scanFileInput" style="display:none;" />
         ${!scanPreviewUrl ? `
@@ -1027,29 +1309,37 @@ function renderHome(){
   if(statKnown) statKnown.onclick = ()=>{ state = {view:'progressList', focus:'known'}; render(); };
   const statLearning = wrap.querySelector('#statLearning');
   if(statLearning) statLearning.onclick = ()=>{ state = {view:'progressList', focus:'learning'}; render(); };
+  const addInput = wrap.querySelector('#addEng');
+  if(addInput){
+    let t = null;
+    addInput.oninput = ()=>{ addQuery = addInput.value; clearTimeout(t); t = setTimeout(refreshAddResults, 120); };
+    addInput.onkeydown = (e)=>{ if(e.key === 'Enter') addInput.blur(); };
+    refreshAddResults();
+  }
+  wrap.querySelectorAll('.pending-del').forEach(b=>{
+    b.onclick = ()=>{ pendingAdds.splice(+b.dataset.i, 1); savePendingAdds(); render(); };
+  });
   const addSubmit = wrap.querySelector('#addSubmit');
   if(addSubmit) addSubmit.onclick = async ()=>{
     const inputEl = wrap.querySelector('#addEng');
     const eng = inputEl.value.trim();
     if(!eng){ showAudioNote('Type a word or phrase first.'); return; }
     hideAudioNote();
+    if(!navigator.onLine){
+      if(!pendingAdds.includes(eng)) pendingAdds.push(eng);
+      await savePendingAdds();
+      addQuery = '';
+      showAudioNote('Saved — it gets translated and added next time you\'re online.');
+      render();
+      return;
+    }
     const originalLabel = addSubmit.innerHTML;
     addSubmit.disabled = true;
     addSubmit.innerHTML = 'Looking up…';
     try{
       const result = await translateEntry(eng);
-      const cat = result.type === 'phrase' ? 'Phrases' : 'Custom';
-      const w = {
-        id: 'c_'+Date.now(), cat, eng,
-        cChar: result.cChar, cRom: result.cRom,
-        mChar: result.mChar, mRom: result.mRom,
-        same: result.cChar === result.mChar,
-      };
-      if(result.lit){ w.cLit = result.lit; w.mLit = result.lit; }
-      if(result.note){ w.note = result.note; }
-      customWords.push(w);
-      await saveCustomWords();
-      inputEl.value = '';
+      addCustomWord(eng, result, result.type === 'phrase');
+      addQuery = '';
       hideAudioNote();
       render();
     }catch(e){
@@ -1118,16 +1408,7 @@ function renderHome(){
       const idx = parseInt(b.dataset.idx, 10);
       const r = scanResults[idx];
       if(!r || r._added) return;
-      const cat = r.type === 'phrase' ? 'Phrases' : 'Custom';
-      const w = {
-        id: 'c_'+Date.now()+'_'+idx, cat, eng: r.eng,
-        cChar: r.cChar, cRom: r.cRom, mChar: r.mChar, mRom: r.mRom,
-        same: r.cChar === r.mChar,
-      };
-      if(r.lit){ w.cLit = r.lit; w.mLit = r.lit; }
-      if(r.note) w.note = r.note;
-      customWords.push(w);
-      saveCustomWords();
+      addCustomWord(r.eng, r, r.type === 'phrase');
       r._added = true;
       render();
     };
@@ -1478,6 +1759,12 @@ function renderSettings(){
     </div>
     <button class="btn-primary" id="saveKeyBtn" style="margin-top:16px;">Save key</button>
     ${apiKey ? `<button class="btn-secondary" id="clearKeyBtn">Remove saved key</button>` : ''}
+    <div class="add-label" style="margin-top:28px;">Offline dictionary</div>
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.6;">
+      ${OfflineDict.ready ? 'Downloaded — Add works without internet.' : 'Not downloaded yet — it downloads automatically the next time you\'re online.'}
+      <br><br>
+      Built from CC-CEDICT (CC BY-SA 4.0, MDBG) and CC-Canto (CC BY-SA 3.0, Pleco Inc.), with word frequencies from HKCanCor (CC BY 4.0) and jieba (MIT), and Jyutping from to-jyutping (BSD-2-Clause, CanCLID). The dictionary file is shared under CC BY-SA 4.0.
+    </div>
   `;
   wrap.appendChild(body);
   app.appendChild(wrap);
