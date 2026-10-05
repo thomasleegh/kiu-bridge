@@ -114,6 +114,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
 .btn-secondary:disabled{opacity:.35;}
+.btn-primary svg,.btn-secondary svg{width:16px;height:16px;flex-shrink:0;}
 .btn-secondary:active:not(:disabled){transform:scale(0.98);}
 
 .section-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:26px 0 12px 4px;font-weight:600;}
@@ -368,10 +369,16 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .scan-result-rails .c{background:var(--canto-dim);color:var(--canto);}
 .scan-result-rails .m{background:var(--mando-dim);color:var(--mando);}
 
+/* ---------- library ---------- */
+#libSearch{margin-bottom:10px;}
+.lib-chips{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.lib-chip{-webkit-appearance:none;appearance:none;height:30px;padding:0 11px;border-radius:100px;background:var(--surface);border:1px solid var(--divider);color:var(--muted);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;}
+.lib-chip.active{background:var(--gold);color:var(--ink);border-color:var(--gold);}
+.lib-chip .lib-n{font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:.75;}
+.lib-chars{font-family:'Noto Serif TC',serif;font-size:15px;color:var(--muted);opacity:.75;flex-shrink:0;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lib-shaky{font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+
 /* ---------- progress list ---------- */
-.progress-section{margin-bottom:24px;}
-.progress-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:10px;padding:0 4px;}
-.p-count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);font-weight:600;}
 .p-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .p-dot.known{background:var(--good);}
 .p-dot.learning{background:var(--gold);}
@@ -381,7 +388,6 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .p-eng{font-size:13.5px;font-weight:600;margin-bottom:2px;}
 .p-rom{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .p-rom .sep{opacity:.4;margin:0 2px;}
-.p-cat{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;}
 .fade-in{animation:fadeIn .3s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion:reduce){.fade-in{animation:none;}}
@@ -668,7 +674,7 @@ async function loadData(){
   render();
   if(IS_STANDALONE){
     // Fetched after first paint so it never slows startup; the service worker keeps it for offline use.
-    setTimeout(()=>OfflineDict.load().then(()=>{ if(state.view==='home' && homeTab==='add') refreshAddResults(); }), 400);
+    setTimeout(()=>OfflineDict.load().then(()=>{ if(state.view==='home' && homeTab==='add') refreshAddResults(); processPendingAdds(); }), 400);
   }
   processPendingAdds();
 }
@@ -999,31 +1005,62 @@ function addCustomWord(eng, r, isPhrase){
   saveCustomWords();
   return w;
 }
-// AI-translates anything saved while offline. Runs on startup and whenever the phone comes back online.
-let pendingBusy = false;
+// Words saved for later (the AI button while offline). Every item either gets added or shows why it's
+// still waiting. Re-checked on launch, when the dictionary finishes loading, on 'online', when the app
+// comes back to the foreground (iOS often skips 'online' for home-screen apps) and when the key is saved.
+// With an API key the AI translates it (the user asked for AI); without one, the offline dictionary does.
+let pendingBusy = false, pendingAgain = false;
+const pendingReasons = {}; // text -> why it's still waiting (shown under the item)
+const hasAI = () => !IS_STANDALONE || !!apiKey;
+const isSavedWord = (r) => customWords.some(w => w.cChar === r.cChar && w.mChar === r.mChar);
+const isPhraseText = (t) => t.trim().split(/\s+/).length >= 3 || /\?$/.test(t.trim());
+// Built-in/saved words first, then the dictionary — what Add shows and what the queue falls back to.
+function offlineMatches(q){
+  const app = searchAppWords(q);
+  return app.concat(OfflineDict.search(q).filter(r => !app.some(a => a.cChar === r.cChar && a.mChar === r.mChar)));
+}
 async function processPendingAdds(){
-  if(pendingBusy || !pendingAdds.length || !navigator.onLine || (IS_STANDALONE && !apiKey)) return;
+  if(pendingBusy){ pendingAgain = true; return; }
+  if(!pendingAdds.length) return;
   pendingBusy = true;
-  let added = 0;
-  while(pendingAdds.length){
-    const eng = pendingAdds[0];
-    try{
-      const result = await translateEntry(eng);
-      addCustomWord(eng, result, result.type === 'phrase');
-      added++;
-    }catch(e){ break; } // offline again, bad key, etc. — keep the rest for next time
-    pendingAdds.shift();
+  const done = [], before = JSON.stringify(pendingReasons);
+  for(const eng of [...pendingAdds]){
+    if(hasAI()){
+      if(!navigator.onLine){ pendingReasons[eng] = 'Waiting for internet'; continue; }
+      try{
+        const r = await translateEntry(eng);
+        if(!isSavedWord(r)) addCustomWord(eng, r, r.type === 'phrase');
+        done.push(eng);
+      }catch(e){
+        pendingReasons[eng] = e.message === 'network' ? 'Waiting for internet'
+          : e.message === 'badkey' ? 'Couldn\'t translate — your API key was rejected (check Settings)'
+          : 'Couldn\'t translate — will try again next time you open the app';
+      }
+      continue;
+    }
+    if(!OfflineDict.ready){
+      pendingReasons[eng] = OfflineDict.failed ? 'Offline dictionary not downloaded yet — open the app once with internet' : 'Waiting for the offline dictionary';
+      continue;
+    }
+    const top = offlineMatches(eng)[0];
+    if(!top){ pendingReasons[eng] = 'No offline match — add an API key in Settings to translate this'; continue; }
+    if(top.source === 'dict' && !isSavedWord(top)) addCustomWord(eng, top, !!top.wordByWord || isPhraseText(eng));
+    done.push(eng); // built-in or already saved: nothing to add, but it's dealt with
+  }
+  if(done.length){
+    pendingAdds = pendingAdds.filter(t => !done.includes(t));
+    done.forEach(t => delete pendingReasons[t]);
     await savePendingAdds();
+    showAudioNote(done.length === 1 ? `"${done[0]}" is now in your words.` : `${done.length} saved words are now in your words.`);
   }
   pendingBusy = false;
-  if(added){
-    showAudioNote(`Translated ${added} saved word${added===1?'':'s'} now that you're online.`);
-    if(state.view==='home') render();
-  }
+  if((done.length || JSON.stringify(pendingReasons) !== before) && state.view === 'home' && homeTab === 'add') render();
+  if(pendingAgain){ pendingAgain = false; processPendingAdds(); }
 }
 const onAddOrScan = () => state.view==='home' && (homeTab==='add' || homeTab==='scan');
 window.addEventListener('online', ()=>{ if(onAddOrScan()) render(); processPendingAdds(); });
 window.addEventListener('offline', ()=>{ if(onAddOrScan()) render(); });
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') processPendingAdds(); });
 function wordCategories(){
   return [...new Set(allWords().filter(w=>w.cat!=='Phrases').map(w=>w.cat))];
 }
@@ -1075,19 +1112,16 @@ function refreshAddResults(){
   const box = document.getElementById('addResults'), status = document.getElementById('dictStatus');
   if(!box) return;
   const q = addQuery.trim();
-  const app = q ? searchAppWords(q) : [];
-  const dict = OfflineDict.search(q).filter(r => !app.some(a => a.cChar === r.cChar && a.mChar === r.mChar));
-  addResults = app.concat(dict).slice(0, 6);
+  addResults = q ? offlineMatches(q).slice(0, 6) : [];
   if(status){
     status.textContent = !IS_STANDALONE ? ''
       : OfflineDict.ready ? (q && !addResults.length ? 'No offline match — try a single word, or translate with AI.' : (q ? '' : 'Offline dictionary ready — works without internet.'))
       : OfflineDict.failed ? 'Offline dictionary not downloaded yet — open the app once with internet.'
       : 'Downloading offline dictionary (one time)…';
   }
-  const isSaved = (r) => customWords.some(w => w.cChar === r.cChar && w.mChar === r.mChar);
   box.innerHTML = addResults.map((r, i) => {
     const builtIn = r.source === 'app' && !String(r.id).startsWith('c_');
-    const saved = !builtIn && (r.source === 'app' || isSaved(r));
+    const saved = !builtIn && (r.source === 'app' || isSavedWord(r));
     const tag = builtIn ? '' : r.cantoOnly ? 'Cantonese only' : r.wordByWord ? 'Phrase' : '';
     return `
     <div class="scan-result-card dict-card">
@@ -1109,7 +1143,7 @@ function refreshAddResults(){
       const r = addResults[+b.dataset.i];
       if(!r || b.disabled) return;
       // A sentence, or a typed phrase of 3+ words / a question, goes to Phrases practice; the rest to Words.
-      const isPhrase = !!r.wordByWord || r.eng.trim().split(/\s+/).length >= 3 || /\?$/.test(r.eng.trim());
+      const isPhrase = !!r.wordByWord || isPhraseText(r.eng);
       addCustomWord(r.wordByWord ? r.eng.replace(/ \+ /g, ' ') : r.eng, r, isPhrase);
       render();
     };
@@ -1137,7 +1171,7 @@ function renderHome(){
       <div class="wordmark"><span class="glyph">橋</span><span class="sub">Kiu · Bridge</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <button class="icon-btn" id="settingsBtn" aria-label="Settings">${icon('gear')}</button>
-        <button class="icon-btn" id="progressBtn" aria-label="View all progress">${icon('book')}</button>
+        <button class="icon-btn" id="progressBtn" aria-label="Library">${icon('book')}</button>
         <div class="streak">${icon('flame')} ${meta.streak||0} day${meta.streak===1?'':'s'}</div>
       </div>
     </div>
@@ -1226,12 +1260,17 @@ function renderHome(){
           ${(IS_STANDALONE && !apiKey && navigator.onLine) ? `<div class="dict-status" id="addKeyNudge" style="cursor:pointer;text-decoration:underline;">AI needs your API key — tap to add it in Settings.</div>` : ''}
         </div>
         ${pendingAdds.length ? `
-          <div class="section-label">Waiting for internet (${pendingAdds.length})</div>
+          <div class="section-label">Waiting to translate (${pendingAdds.length})</div>
+          <div id="pendingList">
           ${pendingAdds.map((t,i)=>`
             <div class="browse-item">
-              <div class="mid"><div class="e" style="margin:0;">${escHTML(t)}</div></div>
+              <div class="mid">
+                <div class="e" style="margin:0;color:var(--paper);">${escHTML(t)}</div>
+                <div class="dict-status" style="margin-top:3px;">${escHTML(pendingReasons[t] || (hasAI() ? 'Waiting for internet' : 'Checking the offline dictionary…'))}</div>
+              </div>
               <button class="del-btn pending-del" data-i="${i}" aria-label="Remove">${icon('close')}</button>
             </div>`).join('')}
+          </div>
         ` : ''}
         <div class="section-label">Your words (${customWords.length})</div>
         ${customWords.length===0 ? `<div class="mic-warn subtle">Nothing added yet — words go into Vocab practice, phrases go into Phrases practice, automatically.</div>` : ''}
@@ -1317,7 +1356,7 @@ function renderHome(){
     refreshAddResults();
   }
   wrap.querySelectorAll('.pending-del').forEach(b=>{
-    b.onclick = ()=>{ pendingAdds.splice(+b.dataset.i, 1); savePendingAdds(); render(); };
+    b.onclick = ()=>{ delete pendingReasons[pendingAdds[+b.dataset.i]]; pendingAdds.splice(+b.dataset.i, 1); savePendingAdds(); render(); };
   });
   const addSubmit = wrap.querySelector('#addSubmit');
   if(addSubmit) addSubmit.onclick = async ()=>{
@@ -1329,8 +1368,9 @@ function renderHome(){
       if(!pendingAdds.includes(eng)) pendingAdds.push(eng);
       await savePendingAdds();
       addQuery = '';
-      showAudioNote('Saved — it gets translated and added next time you\'re online.');
+      showAudioNote(hasAI() ? 'Saved — the AI translates it as soon as you\'re online.' : 'Saved — adding it from the offline dictionary.');
       render();
+      processPendingAdds();
       return;
     }
     const originalLabel = addSubmit.innerHTML;
@@ -1773,6 +1813,7 @@ function renderSettings(){
     const val = wrap.querySelector('#apiKeyInput').value.trim();
     if(!val){ showAudioNote('Paste your API key first.'); return; }
     await saveApiKey(val);
+    processPendingAdds();
     showAudioNote('API key saved.');
     render();
   };
@@ -1783,59 +1824,73 @@ function renderSettings(){
   };
 }
 
+// Library (book icon): every word — built-in and added — in one alphabetical list with live search.
+// A coloured dot marks learning status; the chips filter by it (the home Known/Learning stats open
+// the matching filter, so their numbers always agree with what's listed).
+let libQuery = '';
+const LIB_FILTERS = [['all','All'],['known','Known'],['learning','Learning'],['new','New']];
+const sortKey = (w) => w.eng.toLowerCase().replace(/^(to|the|a|an) /, '');
+// Lowercase, no tone marks/numbers or spaces: "chī" -> "chi", "ting1 jat6" -> "tingjat".
+const plain = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[0-9\s'·.,!?]/g, '');
 function renderProgressList(){
-  const words = allWords();
-  const known = words.filter(w=>statusOf(w.id)==='known')
-    .sort((a,b)=> shakyCountOf(b.id) - shakyCountOf(a.id));
-  const learning = words.filter(w=>statusOf(w.id)==='learning')
-    .sort((a,b)=> shakyCountOf(b.id) - shakyCountOf(a.id));
-  const untried = words.filter(w=>statusOf(w.id)==='new');
-
   const wrap = document.createElement('div');
   wrap.className = 'fade-in';
   wrap.style.display='flex'; wrap.style.flexDirection='column'; wrap.style.minHeight='100vh';
   wrap.appendChild(sessionTopBar(0,0,()=>{state={view:'home'};render();}));
-  wrap.querySelector('.dots').outerHTML = `<div style="flex:1;font-weight:700;font-size:15px;">All progress</div>`;
-
-  const rowsHTML = (list, dotClass) => list.map(w=>{
-    const sc = shakyCountOf(w.id);
-    return `
-    <div class="progress-row">
-      <div class="p-dot ${dotClass}"></div>
-      <div class="p-mid">
-        <div class="p-eng">${w.eng}</div>
-        <div class="p-rom">${w.cRom} <span class="sep">·</span> ${w.mRom}</div>
-      </div>
-      ${sc>0 ? `<div class="p-shaky">${sc}× shaky</div>` : ''}
-      <div class="p-cat">${w.cat}</div>
-    </div>
-  `;}).join('');
-
+  wrap.querySelector('.dots').outerHTML = `<div style="flex:1;font-weight:700;font-size:15px;">Library</div>`;
   const body = document.createElement('div');
   body.className = 'browse-list';
   body.innerHTML = `
-    <div class="progress-section" id="section-known">
-      <div class="progress-head"><span class="p-dot known"></span>Known <span class="p-count">${known.length}</span></div>
-      ${known.length ? rowsHTML(known,'known') : `<div class="mic-warn subtle">Nothing marked known yet.</div>`}
-    </div>
-    <div class="progress-section" id="section-learning">
-      <div class="progress-head"><span class="p-dot learning"></span>Still shaky <span class="p-count">${learning.length}</span></div>
-      ${learning.length ? rowsHTML(learning,'learning') : `<div class="mic-warn subtle">Nothing in progress right now.</div>`}
-    </div>
-    <div class="progress-section" id="section-new">
-      <div class="progress-head"><span class="p-dot new"></span>Not tried yet <span class="p-count">${untried.length}</span></div>
-      ${untried.length ? rowsHTML(untried,'new') : `<div class="mic-warn subtle">You've tried everything at least once.</div>`}
-    </div>
+    <input class="add-input" id="libSearch" placeholder="Search English, Jyutping, Pinyin or 字" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escHTML(libQuery)}" />
+    <div class="lib-chips" id="libChips"></div>
+    <div id="libList"></div>
   `;
   wrap.appendChild(body);
   app.appendChild(wrap);
-  if(state.focus){
-    const target = document.getElementById('section-'+state.focus);
-    if(target) target.scrollIntoView({block:'start'});
-  }
+  const input = body.querySelector('#libSearch');
+  input.oninput = ()=>{ libQuery = input.value; refreshLibrary(); };
+  input.onkeydown = (e)=>{ if(e.key === 'Enter') input.blur(); };
+  refreshLibrary();
+}
+function refreshLibrary(){
+  const filter = state.focus || 'all';
+  const words = allWords().slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const q = libQuery.trim().toLowerCase(), qp = plain(q);
+  const matches = (w) => !q || w.eng.toLowerCase().includes(q) || (qp && (plain(w.cRom).includes(qp) || plain(w.mRom).includes(qp)))
+    || w.cChar.includes(q) || w.mChar.includes(q);
+  const found = words.filter(matches);
+  const counts = { all: found.length, known: 0, learning: 0, new: 0 };
+  found.forEach(w => counts[statusOf(w.id)]++);
+  const shown = filter === 'all' ? found : found.filter(w => statusOf(w.id) === filter);
+  document.getElementById('libChips').innerHTML = LIB_FILTERS.map(([k, label]) =>
+    `<button class="lib-chip ${filter===k?'active':''}" data-f="${k}">${k==='all'?'':`<span class="p-dot ${k}"></span>`}${label} <span class="lib-n">${counts[k]}</span></button>`).join('');
+  document.querySelectorAll('.lib-chip').forEach(c => { c.onclick = ()=>{ state.focus = c.dataset.f === 'all' ? null : c.dataset.f; refreshLibrary(); }; });
+  const list = document.getElementById('libList');
+  list.innerHTML = shown.length ? shown.map(w => {
+    const sc = shakyCountOf(w.id);
+    return `
+    <div class="progress-row lib-row">
+      <span class="p-dot ${statusOf(w.id)}" title="${statusOf(w.id)}"></span>
+      <div class="p-mid">
+        <div class="p-eng">${escHTML(w.eng)}</div>
+        <div class="p-rom">${escHTML(w.cRom)} <span class="sep">·</span> ${escHTML(w.mRom)}</div>
+      </div>
+      ${sc > 0 ? `<div class="lib-shaky">${sc}× shaky</div>` : ''}
+      <div class="lib-chars">${escHTML(w.cChar)}</div>
+    </div>`;
+  }).join('') : `<div class="mic-warn subtle" style="margin-top:6px;">${q ? 'No words match that search.' : 'Nothing here yet.'}</div>`;
 }
 
 if(IS_STANDALONE && 'serviceWorker' in navigator && location.protocol.startsWith('http')){
+  // When a new version's service worker takes over, reload once so the update shows now rather than
+  // on the launch after next. Skipped on first install (nothing was in control before).
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   });
