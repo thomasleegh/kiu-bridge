@@ -91,7 +91,7 @@ async function queueOffline(page, ctx, text){
 await test('No API key: a word saved offline is added from the offline dictionary', async (page, ctx) => {
   await open(page); await openAdd(page);
   await queueOffline(page, ctx, 'umbrella');
-  await eventually(page, async () => (await saved(page)).some(w => w.cChar === '遮' && w.mChar === '雨傘'), 'umbrella never reached Your words');
+  await eventually(page, async () => (await saved(page)).some(w => w.cChar === '遮' && w.mChar === '雨伞'), 'umbrella never reached Your words');
   assert((await pending(page)).length === 0, 'umbrella still in the waiting list');
   await eventually(page, async () => !/waiting to translate/i.test(await page.innerText('body')), 'waiting section still shown', 1500);
   assert(/your words \(1\)/i.test(await page.innerText('body')), 'Your words count not updated');
@@ -279,6 +279,61 @@ await test('Small speaker buttons have a finger-sized tap area (>= 40px)', async
     const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el?.closest('.speak-btn.canto') ? '' : (el?.className || el?.tagName || 'nothing'); }, [cx + dx, cy + dy]);
     assert(!hit, `tap ${dx},${dy}px from centre hits "${hit}" instead (button is ${box.width}x${box.height})`);
   }
+});
+
+// ---------- Mandarin in Simplified characters (Cantonese stays Traditional) ----------
+// Traditional-only forms of common characters — none of these may appear in Mandarin text.
+const TRAD_ONLY = /[們這說麼對謝飯麵現時來聽歡買嗎錢裡餓會樂見電話機給還別蘋過點興認識間邊後誰為麼樣東覺]/;
+const mandoTexts = (page) => page.evaluate(() => [
+  ...VOCAB.map(w => w.mChar), ...CONVOS.flatMap(c => c.lines.map(l => l.mChar)),
+  ...SCENARIOS.flatMap(s => s.turns.flatMap(t => [t.npcMChar, t.expMChar])),
+  ...customWords.map(w => w.mChar),
+]);
+
+await test('Built-in words, conversations and role-plays show Mandarin in Simplified', async (page) => {
+  await open(page);
+  const bad = (await mandoTexts(page)).filter(t => TRAD_ONLY.test(t));
+  assert(!bad.length, 'Traditional Mandarin: ' + bad.slice(0, 6).join(' '));
+  const v = await page.evaluate(() => VOCAB.find(w => w.eng === 'Thank you'));
+  assert(v.mChar === '谢谢' && v.cChar !== '谢谢', 'Thank you: ' + JSON.stringify(v));
+});
+
+await test('Conversion: already-Simplified text unchanged; word exceptions right', async (page) => {
+  await open(page);
+  const r = await page.evaluate(() => ['什么', '著名', '反覆', '我想吃飯', '頭髮', '電話', 'Alex，你好'].map(toSimp));
+  assert(JSON.stringify(r) === JSON.stringify(['什么', '著名', '反复', '我想吃饭', '头发', '电话', 'Alex，你好']), r.join(' '));
+});
+
+await test('Add results: Mandarin characters and audio use Simplified', async (page) => {
+  await open(page); await openAdd(page);
+  await page.fill('#addEng', 'telephone'); await page.waitForTimeout(250);
+  const card = page.locator('.dict-card').filter({ hasText: '電話' }).first();
+  assert((await card.locator('.dict-chars').textContent()).trim() === '電話 · 电话', 'chars: ' + await card.locator('.dict-chars').textContent());
+  assert(await card.locator('.speak-btn.mando').getAttribute('data-text') === '电话', 'Mandarin audio text not Simplified');
+  assert(await card.locator('.speak-btn.canto').getAttribute('data-text') === '電話', 'Cantonese should stay Traditional');
+  await card.locator('.dict-add').click();
+  assert((await saved(page)).some(w => w.mChar === '电话' && w.cChar === '電話'), 'saved with Traditional Mandarin');
+});
+
+await test('Words saved by an older version (Traditional Mandarin) show as Simplified', async (page) => {
+  await page.addInitScript(() => localStorage.setItem('kiu_customWords', JSON.stringify([
+    { id: 'c_1_old', cat: 'Custom', eng: 'umbrella', cChar: '遮', cRom: 'ze1', mChar: '雨傘', mRom: 'yǔsǎn', same: false }])));
+  await open(page);
+  const t = await mandoTexts(page);
+  assert(t.includes('雨伞') && !t.includes('雨傘'), 'old saved word still Traditional');
+  await page.click('#progressBtn');
+  await page.fill('#libSearch', '雨伞'); await page.waitForTimeout(150);
+  assert((await rows(page)).length === 1, 'Simplified search misses the word');
+});
+
+await test('AI translation returning Traditional Mandarin is saved as Simplified', async (page) => {
+  await mockAI(page);
+  await open(page, { apiKey: 'test-key' }); await openAdd(page);
+  await page.fill('#addEng', 'can I get the check?');
+  await page.click('#addSubmit');
+  await eventually(page, async () => (await saved(page)).some(w => w.eng === 'can I get the check?'), 'AI word not saved');
+  const w = (await saved(page)).find(w => w.eng === 'can I get the check?');
+  assert(w.mChar === '买单' && w.cChar === '唔該埋單', JSON.stringify(w));
 });
 
 // ---------- Offline start ----------

@@ -25,6 +25,7 @@ Settings (gear) → paste your Anthropic API key (console.anthropic.com). Only n
 
     bash scripts/fetch-dict-sources.sh        # downloads inputs into dict-src/ (gitignored)
     node scripts/build-dict.mjs dict-src
+    node scripts/build-simp.mjs          # refresh the Traditional→Simplified table for Mandarin
     node scripts/test-lookup.mjs
 
 Then bump `CACHE_NAME` in `sw.js`.
