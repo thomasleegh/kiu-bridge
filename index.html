@@ -172,6 +172,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .rail .tag{font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;font-weight:700;}
 .lit{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;font-style:italic;opacity:.65;margin-top:4px;letter-spacing:.01em;}
 .speak-btn{
+  position:relative;z-index:1;-webkit-appearance:none;appearance:none;padding:0;
   width:24px;height:24px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,0.14);transition:transform .1s ease,background .1s ease;
@@ -182,6 +183,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .speak-btn.mando{color:var(--mando);}
 .speak-btn.small{width:20px;height:20px;background:transparent;border:1px solid currentColor;opacity:.65;}
 .speak-btn.small svg{width:10px;height:10px;}
+/* Invisible finger-sized tap area (~44px) around the small circles. */
+.speak-btn::after{content:'';position:absolute;inset:-10px;border-radius:50%;}
+.speak-btn.small::after{inset:-12px;}
+.speak-btn.playing{opacity:1;animation:speakPulse 1s ease-in-out infinite;}
+@keyframes speakPulse{0%,100%{box-shadow:0 0 0 0 currentColor;}50%{box-shadow:0 0 0 4px transparent;}}
 .connector{width:2px;height:16px;background:var(--divider);margin:0 auto;}
 .connector.c-top{background:linear-gradient(var(--canto-line),var(--divider));}
 .connector.c-bot{background:linear-gradient(var(--divider),var(--mando-line));}
@@ -576,29 +582,75 @@ let voicesReady = false;
 if('speechSynthesis' in window){
   window.speechSynthesis.onvoiceschanged = ()=>{ voicesReady = true; };
 }
+// iOS reports voice langs as zh-HK, zh_HK or yue-…; match all of them.
 function pickVoice(prefix){
   if(!('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
-  return voices.find(v=>v.lang && v.lang.toLowerCase().startsWith(prefix.toLowerCase())) || null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const want = prefix.toLowerCase();
+  const norm = v => String(v.lang || '').replace('_', '-').toLowerCase();
+  return voices.find(v=>norm(v).startsWith(want))
+    || (want === 'zh-hk' ? voices.find(v=>norm(v).startsWith('yue')) : null)
+    || null;
 }
 let audioWarned = false;
-function speak(text, prefix, fallbackLang, warnLabel){
-  if(!('speechSynthesis' in window)){ return; }
-  try{
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice(prefix);
-    if(voice){ u.voice = voice; u.lang = voice.lang; }
-    else {
-      u.lang = fallbackLang;
-      if(!audioWarned){
-        audioWarned = true;
-        showAudioNote(`No ${warnLabel} voice found on this device — playing with the closest available voice instead.`);
+let currentUtter = null, playingBtn = null, speakWatchdog = null, lastSpoken = {text:'', at:0}, retryHinted = false;
+const NO_SOUND_HELP = 'No sound? Flip the silent switch on the side of your iPhone off and turn the volume up. Still nothing: Settings › Accessibility › Spoken Content › Voices › Chinese.';
+function setPlaying(btn){
+  if(playingBtn && playingBtn !== btn) playingBtn.classList.remove('playing');
+  playingBtn = btn || null;
+  if(btn) btn.classList.add('playing');
+}
+function speak(text, prefix, fallbackLang, warnLabel, btn){
+  const synth = window.speechSynthesis;
+  if(!synth || typeof SpeechSynthesisUtterance === 'undefined'){ showAudioNote("This browser can't play pronunciation audio."); return; }
+  // Tapping the same word again soon after = probably heard nothing; say why once.
+  const now = Date.now();
+  if(!retryHinted && lastSpoken.text === text && now - lastSpoken.at < 8000){ retryHinted = true; showAudioNote(NO_SOUND_HELP); }
+  lastSpoken = {text, at: now};
+  // Safari 17+: let speech play even with the silent switch on.
+  try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+  const go = ()=>{
+    try{
+      const u = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice(prefix);
+      if(voice){ u.voice = voice; u.lang = voice.lang; }
+      else {
+        u.lang = fallbackLang;
+        if(!audioWarned){
+          audioWarned = true;
+          showAudioNote(`No ${warnLabel} voice found on this device — playing with the closest available voice instead.`);
+        }
       }
-    }
-    u.rate = 0.82;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
+      u.rate = 0.82;
+      currentUtter = u; // keep a reference: some engines drop callbacks for garbage-collected utterances
+      setPlaying(btn);
+      clearTimeout(speakWatchdog);
+      const done = ()=>{ if(currentUtter !== u) return; clearTimeout(speakWatchdog); currentUtter = null; setPlaying(null); };
+      u.onstart = ()=>{ if(currentUtter === u) clearTimeout(speakWatchdog); };
+      u.onend = done;
+      u.onerror = (e)=>{
+        const err = e && e.error;
+        done();
+        if(err && err !== 'interrupted' && err !== 'canceled') showAudioNote(`Couldn't play audio (${err}). ` + NO_SOUND_HELP);
+      };
+      // Never started: no voice, audio blocked or the engine is stuck — say so instead of failing silently.
+      speakWatchdog = setTimeout(()=>{
+        if(currentUtter !== u) return;
+        currentUtter = null; setPlaying(null);
+        try{ synth.cancel(); }catch(e){}
+        showAudioNote(NO_SOUND_HELP);
+      }, 3000);
+      if(synth.paused) synth.resume();
+      synth.speak(u);
+    }catch(e){ setPlaying(null); showAudioNote(NO_SOUND_HELP); }
+  };
+  // Safari drops a speak() made right after cancel(), so only cancel when something is playing,
+  // and then give it a moment. When idle, speak straight away (still inside the tap, which iOS requires).
+  if(synth.speaking || synth.pending || currentUtter){
+    currentUtter = null; clearTimeout(speakWatchdog);
+    try{ synth.cancel(); }catch(e){}
+    setTimeout(go, 80);
+  } else go();
 }
 function showAudioNote(msg){
   let el = document.getElementById('audioNote');
@@ -627,8 +679,8 @@ function wireSpeakButtons(root){
     b.onclick = (e)=>{
       e.stopPropagation();
       const text = b.dataset.text;
-      if(b.dataset.kind === 'canto') speak(text, 'zh-HK', 'zh-HK', 'Cantonese');
-      else speak(text, 'zh-CN', 'zh-CN', 'Mandarin');
+      if(b.dataset.kind === 'canto') speak(text, 'zh-HK', 'zh-HK', 'Cantonese', b);
+      else speak(text, 'zh-CN', 'zh-CN', 'Mandarin', b);
     };
   });
 }

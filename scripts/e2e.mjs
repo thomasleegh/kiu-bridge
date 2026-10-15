@@ -204,6 +204,83 @@ await test('Library includes words you added', async (page) => {
   assert(r.length === 1 && r[0].dot.includes('new'), 'added word missing from library');
 });
 
+// ---------- Pronunciation (speaker buttons) ----------
+// Fake speechSynthesis that behaves like iOS Safari: a speak() made in the same tick as cancel()
+// is dropped, voices can be empty at first, and `mode` controls whether speech ever starts.
+const fakeSpeech = (page, mode = 'ok') => page.addInitScript((mode) => {
+  const log = window.__speech = { spoken: [], dropped: 0, cancels: 0 };
+  let justCancelled = false, cur = null;
+  const synth = {
+    speaking: false, pending: false, paused: false, onvoiceschanged: null,
+    getVoices: () => [{ lang: 'zh-HK', name: 'Sinji' }, { lang: 'zh-CN', name: 'Tingting' }, { lang: 'en-US', name: 'Samantha' }],
+    cancel(){ log.cancels++; justCancelled = true; setTimeout(() => justCancelled = false, 0);
+      if(cur){ const u = cur; cur = null; synth.speaking = false; u.onerror && u.onerror({ error: 'interrupted' }); } },
+    resume(){}, pause(){},
+    speak(u){
+      if(justCancelled){ log.dropped++; return; }
+      log.spoken.push({ text: u.text, lang: u.lang });
+      if(mode === 'stuck') return;
+      cur = u; synth.speaking = true;
+      setTimeout(() => { if(cur !== u) return; u.onstart && u.onstart({});
+        setTimeout(() => { if(cur !== u) return; cur = null; synth.speaking = false; u.onend && u.onend({}); }, 400); }, 30);
+    },
+  };
+  Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
+  window.SpeechSynthesisUtterance = function(text){ this.text = text; this.lang = ''; this.voice = null; };
+}, mode);
+const spoken = (page) => page.evaluate(() => window.__speech);
+async function addResultsFor(page, q){
+  await open(page); await openAdd(page);
+  await page.fill('#addEng', q); await page.waitForTimeout(250);
+}
+
+await test('Add results: Cantonese and Mandarin speaker buttons play the word', async (page) => {
+  await fakeSpeech(page);
+  await addResultsFor(page, 'table');
+  const card = page.locator('.dict-card').first();
+  const cChar = await card.locator('.speak-btn.canto').getAttribute('data-text');
+  await card.locator('.speak-btn.canto').click();
+  await eventually(page, async () => (await spoken(page)).spoken.length === 1, 'tap on Cantonese speaker played nothing');
+  let s = await spoken(page);
+  assert(s.spoken[0].text === cChar && s.spoken[0].lang === 'zh-HK', 'wrong text/lang: ' + JSON.stringify(s.spoken[0]));
+  await eventually(page, async () => (await card.locator('.speak-btn.canto').getAttribute('class')).includes('playing'), 'no playing feedback on the button');
+  await eventually(page, async () => !(await card.locator('.speak-btn.canto').getAttribute('class')).includes('playing'), 'button stuck in playing state', 2000);
+  await card.locator('.speak-btn.mando').click();
+  await eventually(page, async () => (await spoken(page)).spoken.length === 2, 'tap on Mandarin speaker played nothing');
+  s = await spoken(page);
+  assert(s.spoken[1].lang === 'zh-CN' && s.dropped === 0, 'Mandarin: ' + JSON.stringify(s));
+});
+
+await test('Tapping a second speaker while one is still talking plays the new one', async (page) => {
+  await fakeSpeech(page);
+  await addResultsFor(page, 'table');
+  const btns = page.locator('.dict-card .speak-btn.canto');
+  await btns.nth(0).click();
+  await page.waitForTimeout(100); // first one is mid-sentence
+  await btns.nth(1).click();
+  const want = await btns.nth(1).getAttribute('data-text');
+  await eventually(page, async () => (await spoken(page)).spoken.some(x => x.text === want), 'second word never played');
+});
+
+await test('Speech that never starts tells you why (silent switch / volume / voice)', async (page) => {
+  await fakeSpeech(page, 'stuck');
+  await addResultsFor(page, 'table');
+  await page.locator('.dict-card .speak-btn.canto').first().click();
+  await eventually(page, async () => /silent|volume/i.test(await page.locator('#audioNote').textContent().catch(() => '')), 'no explanation when no sound plays', 5000);
+  assert(!(await page.locator('.dict-card .speak-btn.canto').first().getAttribute('class')).includes('playing'), 'still shows playing');
+});
+
+await test('Small speaker buttons have a finger-sized tap area (>= 40px)', async (page) => {
+  await fakeSpeech(page);
+  await addResultsFor(page, 'table');
+  const box = await page.locator('.dict-card .speak-btn.canto').first().boundingBox();
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  for(const [dx, dy] of [[-20, 0], [20, 0], [0, -20], [0, 19]]){
+    const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el?.closest('.speak-btn.canto') ? '' : (el?.className || el?.tagName || 'nothing'); }, [cx + dx, cy + dy]);
+    assert(!hit, `tap ${dx},${dy}px from centre hits "${hit}" instead (button is ${box.width}x${box.height})`);
+  }
+});
+
 // ---------- Offline start ----------
 await test('Offline relaunch: app opens from cache and the dictionary still works', async (page, ctx) => {
   await open(page); await openAdd(page);

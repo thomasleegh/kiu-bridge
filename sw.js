@@ -1,5 +1,5 @@
 // Bump CACHE_NAME whenever you ship (index.html, dict.json, icons) so installed copies refresh.
-const CACHE_NAME = 'kiu-bridge-v6';
+const CACHE_NAME = 'kiu-bridge-v7';
 // dict.json is precached so the offline dictionary works from the first offline launch after install.
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './dict.json'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
