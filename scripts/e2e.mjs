@@ -336,6 +336,18 @@ await test('AI translation returning Traditional Mandarin is saved as Simplified
   assert(w.mChar === '买单' && w.cChar === '唔該埋單', JSON.stringify(w));
 });
 
+await test('Your words: newest first, list capped at 20 (the rest stay in the Library)', async (page) => {
+  await page.addInitScript(() => localStorage.setItem('kiu_customWords', JSON.stringify(
+    Array.from({ length: 25 }, (_, i) => ({ id: 'c_' + i, cat: 'Custom', eng: 'word' + i, cChar: '字' + i, cRom: 'zi6', mChar: '字' + i, mRom: 'zì', same: true })))));
+  await open(page); await openAdd(page);
+  const names = await page.$$eval('.your-word .e', es => es.map(e => e.firstChild.textContent.trim()));
+  assert(names.length === 20, `showing ${names.length} words, want 20`);
+  assert(names[0] === 'word24' && names[19] === 'word5', `order wrong: ${names[0]} … ${names[19]}`);
+  assert(/your words \(25\)/i.test(await page.innerText('body')), 'header should still count all 25');
+  await page.click('.your-word .del-btn[data-id="c_24"]');
+  assert(!(await saved(page)).some(w => w.id === 'c_24') && (await saved(page)).length === 24, 'delete removed the wrong word');
+});
+
 // ---------- Offline start ----------
 await test('Offline relaunch: app opens from cache and the dictionary still works', async (page, ctx) => {
   await open(page); await openAdd(page);

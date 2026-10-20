@@ -1361,8 +1361,8 @@ function renderHome(){
         ` : ''}
         <div class="section-label">Your words (${customWords.length})</div>
         ${customWords.length===0 ? `<div class="mic-warn subtle">Nothing added yet — words go into Vocab practice, phrases go into Phrases practice, automatically.</div>` : ''}
-        ${customWords.map(w=>`
-          <div class="browse-item">
+        ${customWords.slice(-20).reverse().map(w=>`
+          <div class="browse-item your-word">
             <div class="mid">
               <div class="e">${w.eng} <span class="custom-tag">${w.cat==='Phrases'?'Phrase':'Word'}</span></div>
               <div class="rails">
@@ -1375,6 +1375,7 @@ function renderHome(){
             <button class="del-btn" data-id="${w.id}" aria-label="Delete">${icon('close')}</button>
           </div>
         `).join('')}
+        ${customWords.length > 20 ? `<div class="mic-warn subtle">Showing your 20 newest — all ${customWords.length} are in the Library (book icon).</div>` : ''}
       ` : ''}
 
       ${isScan ? `

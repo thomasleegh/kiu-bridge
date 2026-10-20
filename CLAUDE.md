@@ -39,7 +39,7 @@ button slipped through because nobody measured it. So, for every new feature or 
 ## Data model
 - `VOCAB` (65 built-ins; cats: Greetings, Pronouns, Family, Food, Time, Verbs, Phrases): `{id, cat, eng, cChar, cRom, mChar, mRom, same, cLit?, mLit?, note?}`
 - `CONVOS` (4 dialogues), `SCENARIOS` (3 role-plays: convenience store, market, mall)
-- `customWords[]` — user-added via Add/Scan; cat `Custom` (words) or `Phrases`. All three add paths go through `addCustomWord()`.
+- `customWords[]` — user-added via Add/Scan; cat `Custom` (words) or `Phrases`. All three add paths go through `addCustomWord()`. Stored oldest→newest; the Add tab's "Your words" shows the 20 newest, newest on top (the Library has all).
 - `pendingAdds[]` — text saved with the AI button while offline. `processPendingAdds()` resolves each one: with an API key → AI once online; without → the offline dictionary's best match. Anything it can't resolve keeps a visible reason (`pendingReasons`: waiting for internet / no offline match, needs a key / AI failed, will retry). Runs on launch, dictionary loaded, `online`, `visibilitychange`, and key saved. Never adds a word that's already saved or built in.
 - `progress[id] = {status:'new'|'learning'|'known', shakyCount:n}`; `shakyCount` increments on every "Still shaky" and persists after graduating to Known. Known/Learning lists sort by `shakyCount` desc.
 - `meta = {streak, lastPracticeDate}`
